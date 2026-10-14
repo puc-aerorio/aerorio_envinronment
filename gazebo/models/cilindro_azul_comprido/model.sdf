@@ -1,0 +1,36 @@
+<?xml version="1.0" ?>
+<sdf version="1.9">
+  <model name="cilindro_azul_comprido">
+    <static>true</static>
+
+    <link name="link">
+
+      <pose>0 0 0.2 0 0 0</pose> <!-- metade da altura -->
+
+      <!-- VISUAL -->
+      <visual name="visual">
+        <geometry>
+          <cylinder>
+            <radius>0.05</radius>  <!-- 5 cm -->
+            <length>1.7</length>   <!-- 40 cm -->
+          </cylinder>
+        </geometry>
+        <material>
+          <ambient>0 0 1 1</ambient>   <!-- azul forte -->
+          <diffuse>0 0 1 1</diffuse>
+        </material>
+      </visual>
+
+      <!-- COLISÃO -->
+      <collision name="collision">
+        <geometry>
+          <cylinder>
+            <radius>0.05</radius>
+            <length>1.7</length>
+          </cylinder>
+        </geometry>
+      </collision>
+
+    </link>
+  </model>
+</sdf>

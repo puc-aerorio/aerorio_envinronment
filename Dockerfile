@@ -1,4 +1,4 @@
-# Ambiente de desenvolvimento: ArduPilot SITL + Gazebo Harmonic + ardupilot_gazebo + uav_api
+# Ambiente de desenvolvimento: ArduPilot SITL + Gazebo Harmonic + ardupilot_gazebo + uav_api + ROS 2 Jazzy
 #
 # Build:  docker build -t aerorio/sim .
 # Run:    ./run.sh            (detecta GPU NVIDIA automaticamente; cai para Mesa/llvmpipe sem ela)
@@ -52,6 +52,21 @@ RUN apt-get update && apt-get install -y \
     gstreamer1.0-gl \
     && rm -rf /var/lib/apt/lists/*
 
+# 3b. ROS 2 Jazzy + ros_gz (ponte Gazebo -> ROS 2 para ler as imagens da câmera).
+#     Jazzy é o par oficial do Gazebo Harmonic no Ubuntu 24.04.
+RUN curl -fsSL https://raw.githubusercontent.com/ros/rosdistro/master/ros.key -o /usr/share/keyrings/ros-archive-keyring.gpg \
+    && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/ros-archive-keyring.gpg] http://packages.ros.org/ros2/ubuntu $(lsb_release -cs) main" \
+       > /etc/apt/sources.list.d/ros2.list \
+    && apt-get update && apt-get install -y \
+    ros-jazzy-ros-base \
+    ros-jazzy-ros-gz-bridge \
+    ros-jazzy-ros-gz-image \
+    ros-jazzy-cv-bridge \
+    ros-jazzy-rqt-image-view \
+    python3-colcon-common-extensions \
+    && rm -rf /var/lib/apt/lists/*
+ENV ROS_DISTRO=jazzy
+
 # 4. Usuário sem root (os scripts do ArduPilot recusam rodar como root)
 RUN useradd -m -s /bin/bash ardupilot \
     && echo "ardupilot ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers \
@@ -99,16 +114,40 @@ RUN git clone --branch "${ARDUPILOT_GAZEBO_REF}" \
     && cmake .. -DCMAKE_BUILD_TYPE=RelWithDebInfo \
     && make -j"$(nproc)"
 
+# 7b. Mundos e modelos customizados da equipe (simulation/gazebo -> ~/aerorio_gazebo).
+#     normalize.sh remove lixo do Windows (*Zone.Identifier) e troca caminhos absolutos
+#     (file:///home/grelhas/...) por URIs portáveis model://<nome>.
+COPY --chown=ardupilot:ardupilot gazebo/ /home/ardupilot/aerorio_gazebo/
+COPY --chown=ardupilot:ardupilot start_simulation.sh stop_simulation.sh camera_saver.py /home/ardupilot/
+RUN chmod +x /home/ardupilot/aerorio_gazebo/normalize.sh /home/ardupilot/start_simulation.sh \
+       /home/ardupilot/stop_simulation.sh /home/ardupilot/camera_saver.py \
+    && /home/ardupilot/aerorio_gazebo/normalize.sh /home/ardupilot/aerorio_gazebo \
+    && sudo ln -sf /home/ardupilot/start_simulation.sh /usr/local/bin/start_simulation.sh \
+    && sudo ln -sf /home/ardupilot/stop_simulation.sh /usr/local/bin/stop_simulation.sh \
+    && sudo ln -sf /home/ardupilot/camera_saver.py /usr/local/bin/camera_saver.py
+
 # 8. Variáveis de ambiente (ENV para docker exec / shells não interativos; .bashrc para shells de login)
-ENV GZ_SIM_SYSTEM_PLUGIN_PATH=/home/ardupilot/ardupilot_gazebo/build \
-    GZ_SIM_RESOURCE_PATH=/home/ardupilot/ardupilot_gazebo/models:/home/ardupilot/ardupilot_gazebo/worlds \
+# DRONE_PHOTOS_DIR: onde camera_saver.py grava as fotos; aerorio/photos do host via o bind mount do run.sh.
+ENV DRONE_PHOTOS_DIR=/home/ardupilot/aerorio/photos \
+    GZ_SIM_SYSTEM_PLUGIN_PATH=/home/ardupilot/ardupilot_gazebo/build \
+    GZ_SIM_RESOURCE_PATH=/home/ardupilot/aerorio_gazebo/models:/home/ardupilot/aerorio_gazebo/worlds:/home/ardupilot/ardupilot_gazebo/models:/home/ardupilot/ardupilot_gazebo/worlds \
     PATH=/home/ardupilot/venv-ardupilot/bin:/home/ardupilot/.local/bin:/home/ardupilot/ardupilot/Tools/autotest:${PATH}
+# ros_env.sh: carrega o ROS 2 e corrige a colisão com o Gazebo do sistema. O setup.bash do ROS
+# põe o "gz" do gz_tools_vendor na frente no PATH e define GZ_CONFIG_PATH só com os pacotes
+# vendor (transport/msgs), o que esconde o "gz sim" do gz-harmonic. Usado pelo .bashrc,
+# start_simulation.sh e camera_saver.py.
 RUN { \
+      echo 'source /opt/ros/jazzy/setup.bash'; \
+      echo 'export GZ_CONFIG_PATH="/usr/share/gz${GZ_CONFIG_PATH:+:$GZ_CONFIG_PATH}"'; \
+      echo 'export PATH="/usr/bin:$PATH"'; \
+    } > /home/ardupilot/ros_env.sh \
+    && { \
       echo 'export GZ_VERSION=harmonic'; \
       echo 'export GZ_SIM_SYSTEM_PLUGIN_PATH=$HOME/ardupilot_gazebo/build:$GZ_SIM_SYSTEM_PLUGIN_PATH'; \
-      echo 'export GZ_SIM_RESOURCE_PATH=$HOME/ardupilot_gazebo/models:$HOME/ardupilot_gazebo/worlds:$GZ_SIM_RESOURCE_PATH'; \
+      echo 'export GZ_SIM_RESOURCE_PATH=$HOME/aerorio_gazebo/models:$HOME/aerorio_gazebo/worlds:$HOME/ardupilot_gazebo/models:$HOME/ardupilot_gazebo/worlds'; \
       echo 'export PATH=$HOME/ardupilot/Tools/autotest:$PATH'; \
       echo 'source $HOME/ardupilot/Tools/completion/completion.bash'; \
+      echo 'source $HOME/ros_env.sh'; \
     } >> ~/.bashrc
 
 CMD ["/bin/bash"]

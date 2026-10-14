@@ -1,0 +1,122 @@
+<sdf version='1.10'>
+  <world name='iris_runway'>
+    <physics name='1ms' type='ignore'>
+      <max_step_size>0.001</max_step_size>
+      <real_time_factor>1</real_time_factor>
+      <real_time_update_rate>1000</real_time_update_rate>
+    </physics>
+    <plugin name='gz::sim::systems::Physics' filename='gz-sim-physics-system'/>
+    <plugin name='gz::sim::systems::Sensors' filename='gz-sim-sensors-system'>
+      <render_engine>ogre2</render_engine>
+    </plugin>
+    <plugin name='gz::sim::systems::UserCommands' filename='gz-sim-user-commands-system'/>
+    <plugin name='gz::sim::systems::SceneBroadcaster' filename='gz-sim-scene-broadcaster-system'/>
+    <plugin name='gz::sim::systems::Imu' filename='gz-sim-imu-system'/>
+    <plugin name='gz::sim::systems::NavSat' filename='gz-sim-navsat-system'/>
+    <scene>
+      <ambient>1 1 1 1</ambient>
+      <background>0.800000012 0.800000012 0.800000012 1</background>
+      <sky/>
+      <shadows>true</shadows>
+    </scene>
+    <spherical_coordinates>
+      <latitude_deg>-35.363261999999999</latitude_deg>
+      <longitude_deg>149.16523699999999</longitude_deg>
+      <elevation>584</elevation>
+      <heading_deg>0</heading_deg>
+      <surface_model>EARTH_WGS84</surface_model>
+    </spherical_coordinates>
+    <gravity>0 0 -9.8000000000000007</gravity>
+    <magnetic_field>5.5644999999999998e-06 2.2875799999999999e-05 -4.2388400000000002e-05</magnetic_field>
+    <atmosphere type='adiabatic'/>
+    <include>
+      <uri>model://runway</uri>
+      <name>runway</name>
+      <pose>0 0 0 0 0 0.049999999999999933</pose>
+    </include>
+    <include>
+      <uri>model://iris_with_gimbal</uri>
+      <name>iris_with_gimbal</name>
+      <pose>-9.3933837640763093e-07 3.6300045972280967e-07 0.22499927514315401 2.0229260406021381e-08 -7.7221935727803316e-09 1.5707963189297882</pose>
+    </include>
+    <include>
+      <uri>model://hexagono5</uri>
+      <name>hexagono5</name>
+      <pose>-2.5 3.6000000000000001 0.029999999999999999 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://triangulo4</uri>
+      <name>triangulo4</name>
+      <pose>-0.90000000000000002 2.3999999999999999 0.02 0 0 3.1200000000000001</pose>
+    </include>
+    <include>
+      <uri>model://estrela5</uri>
+      <name>estrela5</name>
+      <pose>3.2000000000000002 -4.5 0.029999999999999999 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://estrela3</uri>
+      <name>estrela3</name>
+      <pose>1.8999999999999999 5.7999999999999998 0.029999999999999999 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://hexagono4</uri>
+      <name>hexagono4</name>
+      <pose>-3.5191481113433838 -3.7016816139221191 0.029999999329447746 0 0 1.5500000228643769</pose>
+    </include>
+    <include>
+      <uri>model://triangulo3</uri>
+      <name>triangulo3</name>
+      <pose>0.29999999999999999 -1.6000000000000001 0.02 0 0 -1.5800000000000007</pose>
+    </include>
+    <include>
+      <uri>model://basepadronizada</uri>
+      <name>basepadronizada</name>
+      <pose>0 0 0.029999999999999999 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://linha_azul_14</uri>
+      <name>linha_azul_14</name>
+      <pose>4 0 1.7347234759768071e-18 0 0 1.5700000000000001</pose>
+    </include>
+    <include>
+      <uri>model://linha_azul_14</uri>
+      <name>linha_azul_14_0</name>
+      <pose>-4 0 1.7347234759768071e-18 0 0 1.5700000000000001</pose>
+    </include>
+    <include>
+      <uri>model://linha_azul_8</uri>
+      <name>linha_azul_8</name>
+      <pose>0 7 0 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://linha_azul_8</uri>
+      <name>linha_azul_8_0</name>
+      <pose>0 -7 0 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://gabaritohexagono25</uri>
+      <name>gabaritohexagono25</name>
+      <pose>2.4948899999999998 3.4756900000000002 0.029999999999999999 0 0 0</pose>
+    </include>
+    <light name='sun' type='directional'>
+      <pose>0 0 10 0 0 0</pose>
+      <cast_shadows>true</cast_shadows>
+      <intensity>1</intensity>
+      <direction>-0.5 0.10000000000000001 -0.90000000000000002</direction>
+      <diffuse>0.800000012 0.800000012 0.800000012 1</diffuse>
+      <specular>0.800000012 0.800000012 0.800000012 1</specular>
+      <attenuation>
+        <range>1000</range>
+        <linear>0.01</linear>
+        <constant>0.90000000000000002</constant>
+        <quadratic>0.001</quadratic>
+      </attenuation>
+      <spot>
+        <inner_angle>0</inner_angle>
+        <outer_angle>0</outer_angle>
+        <falloff>0</falloff>
+      </spot>
+    </light>
+  </world>
+</sdf>

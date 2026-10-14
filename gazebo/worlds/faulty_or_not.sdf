@@ -1,0 +1,117 @@
+<sdf version='1.10'>
+  <world name='iris_runway'>
+    <physics name='1ms' type='ignore'>
+      <max_step_size>0.001</max_step_size>
+      <real_time_factor>1</real_time_factor>
+      <real_time_update_rate>1000</real_time_update_rate>
+    </physics>
+    <plugin name='gz::sim::systems::Physics' filename='gz-sim-physics-system'/>
+    <plugin name='gz::sim::systems::Sensors' filename='gz-sim-sensors-system'>
+      <render_engine>ogre2</render_engine>
+    </plugin>
+    <plugin name='gz::sim::systems::UserCommands' filename='gz-sim-user-commands-system'/>
+    <plugin name='gz::sim::systems::SceneBroadcaster' filename='gz-sim-scene-broadcaster-system'/>
+    <plugin name='gz::sim::systems::Imu' filename='gz-sim-imu-system'/>
+    <plugin name='gz::sim::systems::NavSat' filename='gz-sim-navsat-system'/>
+    <scene>
+      <ambient>1 1 1 1</ambient>
+      <background>0.800000012 0.800000012 0.800000012 1</background>
+      <sky/>
+      <shadows>true</shadows>
+    </scene>
+    <spherical_coordinates>
+      <latitude_deg>-35.363261999999999</latitude_deg>
+      <longitude_deg>149.16523699999999</longitude_deg>
+      <elevation>584</elevation>
+      <heading_deg>0</heading_deg>
+      <surface_model>EARTH_WGS84</surface_model>
+    </spherical_coordinates>
+    <gravity>0 0 -9.8000000000000007</gravity>
+    <magnetic_field>5.5644999999999998e-06 2.2875799999999999e-05 -4.2388400000000002e-05</magnetic_field>
+    <atmosphere type='adiabatic'/>
+    <include>
+      <uri>model://runway</uri>
+      <name>runway</name>
+      <pose>0 0 0 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://iris_with_gimbal</uri>
+      <name>iris_with_gimbal</name>
+      <pose>0.034096028792051383 -0.00065395047337661702 0.22499943369703276 2.0841734469437132e-06 -1.2890730152304524e-09 1.5953852443676031</pose>
+    </include>
+    <include>
+      <uri>model://basepadronizada</uri>
+      <name>basepadronizada</name>
+      <pose>0 0 0.029999999999999999 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://manometro1</uri>
+      <name>manometro1</name>
+      <pose>-6 2 1.7 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://manometro3</uri>
+      <name>manometro3</name>
+      <pose>5 2.5 1.7 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://manometro2</uri>
+      <name>manometro2</name>
+      <pose>0 -2.5 1.7 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://linha_azul_14</uri>
+      <name>linha_azul_14</name>
+      <pose>0 4 0 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://linha_azul_14</uri>
+      <name>linha_azul_14_0</name>
+      <pose>0 -4 0 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://linha_azul_8</uri>
+      <name>linha_azul_8</name>
+      <pose>-7 0 1.7347234759768071e-18 0 0 1.5699999999999998</pose>
+    </include>
+    <include>
+      <uri>model://linha_azul_8</uri>
+      <name>linha_azul_8_0</name>
+      <pose>7 0 1.7347234759768071e-18 0 0 1.5699999999999998</pose>
+    </include>
+    <include>
+      <uri>model://cilindro_azul_comprido</uri>
+      <name>cilindro_azul_comprido</name>
+      <pose>-6 2 0.64000000000000012 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://cilindro_azul_comprido</uri>
+      <name>cilindro_azul_comprido_0</name>
+      <pose>0 -2.5 0.64000000000000012 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://cilindro_azul_comprido</uri>
+      <name>cilindro_azul_comprido_1</name>
+      <pose>5 2.5 0.64000000000000012 0 0 0</pose>
+    </include>
+    <light name='sun' type='directional'>
+      <pose>0 0 10 0 0 0</pose>
+      <cast_shadows>true</cast_shadows>
+      <intensity>1</intensity>
+      <direction>-0.5 0.10000000000000001 -0.90000000000000002</direction>
+      <diffuse>0.800000012 0.800000012 0.800000012 1</diffuse>
+      <specular>0.800000012 0.800000012 0.800000012 1</specular>
+      <attenuation>
+        <range>1000</range>
+        <linear>0.01</linear>
+        <constant>0.90000000000000002</constant>
+        <quadratic>0.001</quadratic>
+      </attenuation>
+      <spot>
+        <inner_angle>0</inner_angle>
+        <outer_angle>0</outer_angle>
+        <falloff>0</falloff>
+      </spot>
+    </light>
+  </world>
+</sdf>

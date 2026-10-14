@@ -41,6 +41,15 @@ else
   echo "         Para usar a GPU instale o NVIDIA Container Toolkit (ver README.md)."
 fi
 
+# Sem o toolkit NVIDIA, /dev/dri deixa o Mesa usar a GPU integrada (Intel/AMD) em vez de llvmpipe.
+DRI_ARGS=()
+if [[ -d /dev/dri ]]; then
+  DRI_ARGS=(--device /dev/dri)
+  # /dev/dri/renderD* pertence ao grupo "render" do host; o usuário do container precisa dele.
+  RENDER_GID="$(getent group render | cut -d: -f3 || true)"
+  [[ -n "$RENDER_GID" ]] && DRI_ARGS+=(--group-add "$RENDER_GID")
+fi
+
 # Libera o X (XWayland) para o container. DISPLAY normalmente é :0.
 if command -v xhost >/dev/null; then xhost +local:docker >/dev/null || true; fi
 
@@ -48,6 +57,7 @@ exec docker run -it --rm \
   --name "$NAME" \
   --network host \
   "${GPU_ARGS[@]}" \
+  "${DRI_ARGS[@]}" \
   -e DISPLAY="${DISPLAY:-:0}" \
   -e QT_X11_NO_MITSHM=1 \
   -v /tmp/.X11-unix:/tmp/.X11-unix:rw \
