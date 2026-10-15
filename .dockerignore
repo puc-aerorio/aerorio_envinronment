@@ -1,6 +1,6 @@
 .git
 **/*Zone.Identifier*
+**/__pycache__/
+workspace/photos/
 README.md
 run.sh
-examples/
-**/__pycache__/

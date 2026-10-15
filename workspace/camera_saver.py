@@ -3,7 +3,7 @@
 
 Adaptado do script original da equipe (que gravava em /mnt/c/Users/AeroRio/Desktop/dataset_drone):
   - pasta de saída vem de --dir ou da variável DRONE_PHOTOS_DIR
-    (padrão /home/ardupilot/aerorio/photos, que é a pasta aerorio/photos do host montada pelo run.sh);
+    (padrão /home/ardupilot/workspace/photos, a pasta photos/ do clone montado pelo run.sh);
   - tópico vem de --topic; sem ele, espera e usa o primeiro tópico sensor_msgs/Image que aparecer,
     então funciona em qualquer mundo sem editar o script;
   - a numeração continua a partir do último frame_NNNNN.png existente, para não sobrescrever;
@@ -35,7 +35,7 @@ import numpy as np
 from rclpy.node import Node
 from sensor_msgs.msg import Image
 
-DEFAULT_DIR = os.environ.get("DRONE_PHOTOS_DIR", os.path.expanduser("~/aerorio/photos"))
+DEFAULT_DIR = os.environ.get("DRONE_PHOTOS_DIR", os.path.expanduser("~/workspace/photos"))
 IMAGE_TYPE = "sensor_msgs/msg/Image"
 FRAME_RE = re.compile(r"^frame_(\d{5})\.png$")
 

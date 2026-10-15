@@ -70,7 +70,7 @@ ENV ROS_DISTRO=jazzy
 
 # 4. Usuário sem root (os scripts do ArduPilot recusam rodar como root).
 #    Criado com o uid/gid do usuário do host (run.sh passa HOST_UID/HOST_GID) para que o container
-#    consiga escrever na pasta aerorio/ montada do host (fotos do camera_saver, logs, etc.).
+#    consiga escrever no clone do repositório montado do host (fotos do camera_saver, etc.).
 #    O ubuntu:24.04 já traz um usuário "ubuntu" com uid 1000; ele é removido para liberar o uid.
 ARG HOST_UID=1000
 ARG HOST_GID=1000
@@ -123,12 +123,20 @@ RUN git clone --branch "${ARDUPILOT_GAZEBO_REF}" \
     && cmake .. -DCMAKE_BUILD_TYPE=RelWithDebInfo \
     && make -j"$(nproc)"
 
-# 7b. Mundos e modelos customizados da equipe (simulation/gazebo -> ~/aerorio_gazebo).
+# 7b. A pasta workspace/ do repositório (scripts, mundos, exemplos) vai para ~/workspace, para a
+#     imagem funcionar sozinha (docker run) em qualquer máquina. O run.sh monta a workspace/ do
+#     clone por cima desse mesmo caminho, então edições e fotos ficam no clone. Os scripts entram
+#     no PATH por symlink, apontando para ~/workspace: com o clone montado, a versão editada vale.
 #     normalize.sh remove lixo do Windows (*Zone.Identifier) e troca caminhos absolutos
 #     (file:///home/grelhas/...) por URIs portáveis model://<nome>.
-COPY --chown=ardupilot:ardupilot gazebo/ /home/ardupilot/aerorio_gazebo/
-COPY --chown=ardupilot:ardupilot start_simulation.sh stop_simulation.sh camera_saver.py /home/ardupilot/
-COPY --chown=ardupilot:ardupilot tmux.conf /home/ardupilot/.tmux.conf
+COPY --chown=ardupilot:ardupilot workspace/ /home/ardupilot/workspace/
+RUN chmod +x /home/ardupilot/workspace/gazebo/normalize.sh /home/ardupilot/workspace/start_simulation.sh /home/ardupilot/workspace/stop_simulation.sh \
+       /home/ardupilot/workspace/camera_saver.py /home/ardupilot/workspace/examples/*.py \
+    && /home/ardupilot/workspace/gazebo/normalize.sh /home/ardupilot/workspace/gazebo \
+    && sudo ln -sf /home/ardupilot/workspace/start_simulation.sh /usr/local/bin/start_simulation.sh \
+    && sudo ln -sf /home/ardupilot/workspace/stop_simulation.sh /usr/local/bin/stop_simulation.sh \
+    && sudo ln -sf /home/ardupilot/workspace/camera_saver.py /usr/local/bin/camera_saver.py \
+    && ln -sf /home/ardupilot/workspace/tmux.conf /home/ardupilot/.tmux.conf
 # xclip: copiar do tmux para o clipboard do host (via X11). Instalado aqui, tarde, para não
 # invalidar as camadas pesadas (ArduPilot/Gazebo) quando mudar.
 RUN sudo apt-get update && sudo apt-get install -y --no-install-recommends xclip \
@@ -149,18 +157,11 @@ RUN curl -fsSL https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor
          'exec /usr/bin/code --no-sandbox "$@"' \
        | sudo tee /usr/local/bin/code >/dev/null \
     && sudo chmod +x /usr/local/bin/code
-RUN chmod +x /home/ardupilot/aerorio_gazebo/normalize.sh /home/ardupilot/start_simulation.sh \
-       /home/ardupilot/stop_simulation.sh /home/ardupilot/camera_saver.py \
-    && /home/ardupilot/aerorio_gazebo/normalize.sh /home/ardupilot/aerorio_gazebo \
-    && sudo ln -sf /home/ardupilot/start_simulation.sh /usr/local/bin/start_simulation.sh \
-    && sudo ln -sf /home/ardupilot/stop_simulation.sh /usr/local/bin/stop_simulation.sh \
-    && sudo ln -sf /home/ardupilot/camera_saver.py /usr/local/bin/camera_saver.py
-
 # 8. Variáveis de ambiente (ENV para docker exec / shells não interativos; .bashrc para shells de login)
-# DRONE_PHOTOS_DIR: onde camera_saver.py grava as fotos; aerorio/photos do host via o bind mount do run.sh.
-ENV DRONE_PHOTOS_DIR=/home/ardupilot/aerorio/photos \
+# DRONE_PHOTOS_DIR: onde camera_saver.py grava as fotos (photos/ do clone, via o bind mount do run.sh).
+ENV DRONE_PHOTOS_DIR=/home/ardupilot/workspace/photos \
     GZ_SIM_SYSTEM_PLUGIN_PATH=/home/ardupilot/ardupilot_gazebo/build \
-    GZ_SIM_RESOURCE_PATH=/home/ardupilot/aerorio_gazebo/models:/home/ardupilot/aerorio_gazebo/worlds:/home/ardupilot/ardupilot_gazebo/models:/home/ardupilot/ardupilot_gazebo/worlds \
+    GZ_SIM_RESOURCE_PATH=/home/ardupilot/workspace/gazebo/models:/home/ardupilot/workspace/gazebo/worlds:/home/ardupilot/ardupilot_gazebo/models:/home/ardupilot/ardupilot_gazebo/worlds \
     PATH=/home/ardupilot/venv-ardupilot/bin:/home/ardupilot/.local/bin:/home/ardupilot/ardupilot/Tools/autotest:${PATH}
 # ros_env.sh: carrega o ROS 2 e corrige a colisão com o Gazebo do sistema. O setup.bash do ROS
 # põe o "gz" do gz_tools_vendor na frente no PATH e define GZ_CONFIG_PATH só com os pacotes
@@ -175,7 +176,7 @@ RUN { \
     && { \
       echo 'export GZ_VERSION=harmonic'; \
       echo 'export GZ_SIM_SYSTEM_PLUGIN_PATH=$HOME/ardupilot_gazebo/build:$GZ_SIM_SYSTEM_PLUGIN_PATH'; \
-      echo 'export GZ_SIM_RESOURCE_PATH=$HOME/aerorio_gazebo/models:$HOME/aerorio_gazebo/worlds:$HOME/ardupilot_gazebo/models:$HOME/ardupilot_gazebo/worlds'; \
+      echo 'export GZ_SIM_RESOURCE_PATH=$HOME/workspace/gazebo/models:$HOME/workspace/gazebo/worlds:$HOME/ardupilot_gazebo/models:$HOME/ardupilot_gazebo/worlds'; \
       echo 'export PATH=$HOME/ardupilot/Tools/autotest:$PATH'; \
       echo 'source $HOME/ardupilot/Tools/completion/completion.bash'; \
       echo 'source $HOME/ros_env.sh'; \

@@ -7,7 +7,7 @@
 #
 # Uso: start_simulation.sh [mundo]
 #   mundo: "missao1", "missao1.sdf" ou um caminho absoluto (padrão: iris_runway.sdf).
-#   Procura primeiro em ~/aerorio_gazebo/worlds (customizados), depois em ~/ardupilot_gazebo/worlds.
+#   Procura primeiro em ~/workspace/gazebo/worlds (customizados), depois em ~/ardupilot_gazebo/worlds.
 #   Se a sessão "drone" já existir, apenas anexa a ela. Para encerrar tudo: stop_simulation.sh
 #
 # Uso interno: start_simulation.sh --api IP | --bridge | --saver   (painéis 2, 3 e 4)
@@ -15,7 +15,7 @@ set -euo pipefail
 
 SESSION="drone"
 SELF="$(readlink -f "${BASH_SOURCE[0]}")"
-WORLD_DIRS=("$HOME/aerorio_gazebo/worlds" "$HOME/ardupilot_gazebo/worlds")
+WORLD_DIRS=("$HOME/workspace/gazebo/worlds" "$HOME/ardupilot_gazebo/worlds")
 
 # ---------------------------------------------------------------------------
 # Painel 3: espera o Gazebo publicar tópicos de câmera e faz a ponte de todos.
@@ -46,7 +46,7 @@ saver() {
   set +u
   source "$HOME/ros_env.sh"
   set -u
-  exec /usr/bin/python3 "$HOME/camera_saver.py"
+  exec /usr/bin/python3 "$(dirname "$SELF")/camera_saver.py"
 }
 # Parâmetros padrão do frame (.parm) para passar ao sim_vehicle.py via --add-param-file.
 # No ArduPilot master (desde set/2026) o sim_vehicle.py não passa mais --defaults: o binário
@@ -133,7 +133,7 @@ PARAM_ARGS="$(frame_param_args "$VEHICLE" "$FRAME")"
 echo "mundo:    $WORLD_PATH"
 echo "veículo:  $VEHICLE ($FRAME)"
 echo "mavlink:  $IP:14550   uav-api: http://$IP:8000"
-echo "fotos:    ${DRONE_PHOTOS_DIR:-$HOME/aerorio/photos}"
+echo "fotos:    ${DRONE_PHOTOS_DIR:-$HOME/workspace/photos}"
 
 # ---------------------------------------------------------------------------
 # Sessão tmux
