@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
-# Sobe a simulação completa numa sessão tmux chamada "drone", com quatro painéis:
+# Sobe a simulação completa numa sessão tmux chamada "drone", com seis painéis:
 #   0: Gazebo (gz sim)            1: SITL do ArduPilot (sim_vehicle.py)
 #   2: uav-api                    3: ponte ROS 2 (imagens da câmera -> sensor_msgs/Image)
 #   4: camera_saver.py (salva uma foto por segundo em $DRONE_PHOTOS_DIR)
+#   5: shell livre para o usuário
 #
 # Uso: start_simulation.sh [mundo]
 #   mundo: "missao1", "missao1.sdf" ou um caminho absoluto (padrão: iris_runway.sdf).
@@ -47,6 +48,28 @@ saver() {
   set -u
   exec /usr/bin/python3 "$HOME/camera_saver.py"
 }
+# Parâmetros padrão do frame (.parm) para passar ao sim_vehicle.py via --add-param-file.
+# No ArduPilot master (desde set/2026) o sim_vehicle.py não passa mais --defaults: o binário
+# resolve os .parm do frame pelo nome do --model. Como usamos "--model JSON" (ardupilot_gazebo),
+# nada casa e FRAME_CLASS fica 0 -> "Frame: UNSUPPORTED" e o copter não arma.
+# Em checkouts antigos (sem vehicleinfo.json) a função não imprime nada e o sim_vehicle.py
+# continua passando --defaults sozinho.
+frame_param_args() {
+  python3 - "$1" "$2" <<'EOF'
+import json, os, sys
+vehicle, frame = sys.argv[1:3]
+root = os.path.expanduser("~/ardupilot/Tools/autotest")
+try:
+    info = json.load(open(os.path.join(root, "pysim", "vehicleinfo.json")))
+    files = info[vehicle]["frames"][frame].get("default_params_filename", [])
+except Exception:
+    sys.exit(0)
+if isinstance(files, str):
+    files = [files]
+print(" ".join("--add-param-file=" + os.path.join(root, f) for f in files))
+EOF
+}
+
 # Painel 2: uav-api. Ele desiste se o SITL ainda não responde (o Gazebo pode demorar a carregar
 # o mundo), então tenta de novo até conectar. Ctrl-C interrompe o laço.
 api() {
@@ -105,6 +128,8 @@ case "$(basename "$WORLD_PATH")" in
   zephyr*) VEHICLE="ArduPlane"; FRAME="gazebo-zephyr" ;;
 esac
 
+PARAM_ARGS="$(frame_param_args "$VEHICLE" "$FRAME")"
+
 echo "mundo:    $WORLD_PATH"
 echo "veículo:  $VEHICLE ($FRAME)"
 echo "mavlink:  $IP:14550   uav-api: http://$IP:8000"
@@ -121,7 +146,7 @@ tmux send-keys -t "$SESSION" "gz sim -v4 -r '$WORLD_PATH'" C-m
 # 1: SITL (-N: não recompila; o binário já vem pronto na imagem)
 tmux split-window -h -t "$SESSION"
 tmux send-keys -t "$SESSION" \
-  "sleep 5; sim_vehicle.py -N -v $VEHICLE -f $FRAME --model JSON --map --console --out $IP:14550" C-m
+  "sleep 5; sim_vehicle.py -N -v $VEHICLE -f $FRAME --model JSON $PARAM_ARGS --map --console --out $IP:14550" C-m
 
 # 2: uav-api (SITL externo: sem --simulated, que no uav_api >= 0.3 é flag sem valor)
 tmux split-window -v -t "$SESSION"
@@ -136,5 +161,11 @@ tmux send-keys -t "$SESSION" "'$SELF' --bridge" C-m
 tmux split-window -v -t "$SESSION"
 tmux send-keys -t "$SESSION" "'$SELF' --saver" C-m
 
+# 5: shell livre para o usuário (fica selecionado ao anexar). Guardamos o id do painel porque
+#    o tmux renumera os índices conforme a posição; "0.5" não é necessariamente este painel.
+FREE_PANE="$(tmux split-window -v -P -F '#{pane_id}' -t "$SESSION")"
+tmux send-keys -t "$FREE_PANE" "clear; echo 'Painel livre: rode aqui seus comandos e scripts (ex.: curl http://$IP:8000/telemetry/gps).'" C-m
+
 tmux select-layout -t "$SESSION" tiled
+tmux select-pane -t "$FREE_PANE"
 exec tmux attach -t "$SESSION"

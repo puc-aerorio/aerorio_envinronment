@@ -2,3 +2,5 @@
 **/*Zone.Identifier*
 README.md
 run.sh
+examples/
+**/__pycache__/

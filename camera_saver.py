@@ -47,7 +47,12 @@ class CameraSaver(Node):
         self.interval = interval
         self.last_save_time = 0.0
 
-        os.makedirs(self.save_dir, exist_ok=True)
+        try:
+            os.makedirs(self.save_dir, exist_ok=True)
+        except PermissionError:
+            sys.exit(f"[camera_saver] sem permissão para criar {self.save_dir} "
+                     f"(uid {os.getuid()}). Se a pasta é a montagem do host, reconstrua a imagem "
+                     f"com ./run.sh --build para o usuário do container ter o uid do host.")
         existing = [int(m.group(1)) for f in os.listdir(self.save_dir) if (m := FRAME_RE.match(f))]
         self.counter = max(existing, default=-1) + 1
 

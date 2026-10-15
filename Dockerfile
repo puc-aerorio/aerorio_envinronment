@@ -5,6 +5,7 @@
 #
 # Versões podem ser fixadas no build:
 #   docker build --build-arg ARDUPILOT_REF=Copter-4.6 --build-arg ARDUPILOT_GAZEBO_REF=main -t aerorio/sim .
+# O usuário do container é criado com HOST_UID/HOST_GID (padrão 1000) para escrever na pasta montada.
 
 FROM ubuntu:24.04
 
@@ -67,8 +68,16 @@ RUN curl -fsSL https://raw.githubusercontent.com/ros/rosdistro/master/ros.key -o
     && rm -rf /var/lib/apt/lists/*
 ENV ROS_DISTRO=jazzy
 
-# 4. Usuário sem root (os scripts do ArduPilot recusam rodar como root)
-RUN useradd -m -s /bin/bash ardupilot \
+# 4. Usuário sem root (os scripts do ArduPilot recusam rodar como root).
+#    Criado com o uid/gid do usuário do host (run.sh passa HOST_UID/HOST_GID) para que o container
+#    consiga escrever na pasta aerorio/ montada do host (fotos do camera_saver, logs, etc.).
+#    O ubuntu:24.04 já traz um usuário "ubuntu" com uid 1000; ele é removido para liberar o uid.
+ARG HOST_UID=1000
+ARG HOST_GID=1000
+RUN if getent passwd "${HOST_UID}" >/dev/null; then userdel -r "$(getent passwd "${HOST_UID}" | cut -d: -f1)"; fi \
+    && if getent group "${HOST_GID}" >/dev/null; then groupdel "$(getent group "${HOST_GID}" | cut -d: -f1)" || true; fi \
+    && groupadd -o -g "${HOST_GID}" ardupilot \
+    && useradd -m -s /bin/bash -u "${HOST_UID}" -g "${HOST_GID}" ardupilot \
     && echo "ardupilot ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers \
     && usermod -aG video,dialout ardupilot
 USER ardupilot
@@ -119,6 +128,27 @@ RUN git clone --branch "${ARDUPILOT_GAZEBO_REF}" \
 #     (file:///home/grelhas/...) por URIs portáveis model://<nome>.
 COPY --chown=ardupilot:ardupilot gazebo/ /home/ardupilot/aerorio_gazebo/
 COPY --chown=ardupilot:ardupilot start_simulation.sh stop_simulation.sh camera_saver.py /home/ardupilot/
+COPY --chown=ardupilot:ardupilot tmux.conf /home/ardupilot/.tmux.conf
+# xclip: copiar do tmux para o clipboard do host (via X11). Instalado aqui, tarde, para não
+# invalidar as camadas pesadas (ArduPilot/Gazebo) quando mudar.
+RUN sudo apt-get update && sudo apt-get install -y --no-install-recommends xclip \
+    && sudo rm -rf /var/lib/apt/lists/*
+
+# 7c. Visual Studio Code (repositório da Microsoft). A janela abre no X11 do host como o Gazebo.
+#     Configurações e extensões ficam em ~/.config/Code e ~/.vscode, que o run.sh monta como
+#     volumes Docker nomeados para sobreviverem ao --rm do container.
+RUN curl -fsSL https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor \
+        | sudo tee /usr/share/keyrings/packages.microsoft.gpg >/dev/null \
+    && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/packages.microsoft.gpg] https://packages.microsoft.com/repos/code stable main" \
+        | sudo tee /etc/apt/sources.list.d/vscode.list >/dev/null \
+    && sudo apt-get update && sudo apt-get install -y --no-install-recommends code libasound2t64 \
+    && sudo rm -rf /var/lib/apt/lists/* \
+    && mkdir -p /home/ardupilot/.config/Code /home/ardupilot/.vscode \
+    && printf '%s\n' '#!/bin/sh' \
+         '# O sandbox do Chromium precisa criar namespaces, bloqueado pelo seccomp padrão do Docker.' \
+         'exec /usr/bin/code --no-sandbox "$@"' \
+       | sudo tee /usr/local/bin/code >/dev/null \
+    && sudo chmod +x /usr/local/bin/code
 RUN chmod +x /home/ardupilot/aerorio_gazebo/normalize.sh /home/ardupilot/start_simulation.sh \
        /home/ardupilot/stop_simulation.sh /home/ardupilot/camera_saver.py \
     && /home/ardupilot/aerorio_gazebo/normalize.sh /home/ardupilot/aerorio_gazebo \
@@ -135,11 +165,12 @@ ENV DRONE_PHOTOS_DIR=/home/ardupilot/aerorio/photos \
 # ros_env.sh: carrega o ROS 2 e corrige a colisão com o Gazebo do sistema. O setup.bash do ROS
 # põe o "gz" do gz_tools_vendor na frente no PATH e define GZ_CONFIG_PATH só com os pacotes
 # vendor (transport/msgs), o que esconde o "gz sim" do gz-harmonic. Usado pelo .bashrc,
-# start_simulation.sh e camera_saver.py.
+# start_simulation.sh e camera_saver.py. O venv volta para a frente do PATH para que "python3"
+# seja o do ArduPilot (pymavlink, uav_api); o rclpy continua importável nele via PYTHONPATH do ROS.
 RUN { \
       echo 'source /opt/ros/jazzy/setup.bash'; \
       echo 'export GZ_CONFIG_PATH="/usr/share/gz${GZ_CONFIG_PATH:+:$GZ_CONFIG_PATH}"'; \
-      echo 'export PATH="/usr/bin:$PATH"'; \
+      echo 'export PATH="$HOME/venv-ardupilot/bin:/usr/local/bin:/usr/bin:$PATH"'; \
     } > /home/ardupilot/ros_env.sh \
     && { \
       echo 'export GZ_VERSION=harmonic'; \

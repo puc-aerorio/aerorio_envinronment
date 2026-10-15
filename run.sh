@@ -23,7 +23,7 @@ for arg in "$@"; do
 done
 
 if [[ $BUILD -eq 1 ]] || ! docker image inspect "$IMAGE" >/dev/null 2>&1; then
-  docker build -t "$IMAGE" "$HERE"
+  docker build --build-arg HOST_UID="$(id -u)" --build-arg HOST_GID="$(id -g)" -t "$IMAGE" "$HERE"
 fi
 
 # Container já rodando? Só abre outro shell nele (útil para o fluxo Gazebo + SITL + uav-api).
@@ -62,4 +62,6 @@ exec docker run -it --rm \
   -e QT_X11_NO_MITSHM=1 \
   -v /tmp/.X11-unix:/tmp/.X11-unix:rw \
   -v "$WORKSPACE":/home/ardupilot/aerorio \
+  -v aerorio-sim-vscode-config:/home/ardupilot/.config/Code \
+  -v aerorio-sim-vscode-ext:/home/ardupilot/.vscode \
   "$IMAGE"
