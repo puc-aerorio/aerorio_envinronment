@@ -1,7 +1,10 @@
 # tarefa — pouso autônomo na base indicada (mundo missao1)
 
-O enunciado completo, o guia do ambiente e as regras de pontuação estão no PDF
-`Tarefa_Pouso_Autonomo_missao1.pdf` distribuído com esta tarefa.
+A tarefa vem em dois PDFs distribuídos junto com esta pasta:
+
+- `Tarefa_Enunciado_missao1.pdf` — o problema, o mundo missao1, os requisitos e as regras de pontuação;
+- `Tarefa_Documentacao_missao1.pdf` — o ambiente de simulação, o guia passo a passo, a interface do
+  kit e o resumo da uav-api.
 
 - `kit/` — arquivos fornecidos: `vision.py` (detecção/identificação de bases), `take_photo.py`
   (última foto da câmera), `avaliador.py` (pontuação automática) e o template `missao.py`.

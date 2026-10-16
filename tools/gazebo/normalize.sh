@@ -18,7 +18,7 @@ mapfile -t files < <(grep -rIl --exclude='normalize.sh' 'grelhas' . || true)
 if [[ ${#files[@]} -gt 0 ]]; then
   sed -i \
     -e 's#file:///home/grelhas/gz_ws/src/ardupilot_gazebo/models/#model://#g' \
-    -e 's#/home/grelhas/gz_ws/src/ardupilot_gazebo/#/home/ardupilot/workspace/gazebo/#g' \
+    -e 's#/home/grelhas/gz_ws/src/ardupilot_gazebo/#/home/ardupilot/tools/gazebo/#g' \
     -e 's#/home/grelhas/#/home/ardupilot/#g' \
     "${files[@]}"
   echo "[normalize] ${#files[@]} arquivo(s) reescrito(s):"; printf '  %s\n' "${files[@]}"

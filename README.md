@@ -16,15 +16,20 @@ Estrutura do repositório:
 ├── run.sh                     # constrói (--build) e abre o container no host
 ├── README.md
 ├── .dockerignore / .gitignore
-└── workspace/                 # tudo que roda DENTRO do container (vira ~/workspace)
-    ├── start_simulation.sh    # sobe Gazebo + SITL + uav-api + ponte + saver no tmux
-    ├── stop_simulation.sh     # derruba tudo (--purge limpa os arquivos do SITL)
-    ├── camera_saver.py        # grava as fotos da câmera em workspace/photos/
-    ├── tmux.conf              # mouse e clipboard no tmux (vira ~/.tmux.conf)
-    ├── examples/exemplo_missao.py
-    ├── gazebo/{models,worlds}/  # mundos e modelos da equipe (+ normalize.sh)
-    └── photos/                # criada em tempo de execução; ignorada pelo git
+├── tools/                     # arquivos do time, usados DENTRO do container (vira ~/tools)
+│   ├── start_simulation.sh    # sobe Gazebo + SITL + uav-api + ponte + saver no tmux
+│   ├── stop_simulation.sh     # derruba tudo (--purge limpa os arquivos do SITL)
+│   ├── camera_saver.py        # grava as fotos da câmera em workspace/photos/
+│   ├── tmux.conf              # mouse e clipboard no tmux (vira ~/.tmux.conf)
+│   ├── examples/exemplo_missao.py
+│   └── gazebo/{models,worlds}/  # mundos e modelos da equipe (+ normalize.sh)
+└── workspace/                 # SUA pasta de trabalho (vira ~/workspace)
+    ├── tarefa/                # tarefa de entrada: kit/ fornecido e solucao/<seu_nome>/
+    └── photos/                # fotos da câmera; criada em tempo de execução, ignorada pelo git
 ```
+
+`tools/` é o que a equipe mantém (scripts, mundos, exemplos); `workspace/` é onde você cria os
+seus scripts e pastas. As duas são montadas no container pelo `run.sh`.
 
 ## Guia rápido
 
@@ -38,11 +43,11 @@ cd aerorio_envinronment
 ./run.sh --build     # demora: baixa Gazebo, ROS 2, ArduPilot, VS Code e compila o SITL
 ```
 
-O clone pode ficar em qualquer pasta. A pasta `workspace/` dele (scripts, mundos do Gazebo,
-exemplos) é copiada para `~/workspace` dentro da imagem.
+O clone pode ficar em qualquer pasta. A pasta `tools/` dele (scripts, mundos do Gazebo,
+exemplos) é copiada para `~/tools` dentro da imagem.
 
 Reconstrua (`./run.sh --build`) sempre que mudar o `Dockerfile` ou quiser que a imagem sozinha
-(sem o `run.sh`) carregue suas mudanças em `workspace/`.
+(sem o `run.sh`) carregue suas mudanças em `tools/`.
 As camadas pesadas ficam em cache, então só o que mudou é refeito.
 
 ### 2. Abrir o container
@@ -52,8 +57,9 @@ As camadas pesadas ficam em cache, então só o que mudou é refeito.
 ```
 
 Chamar `./run.sh` de novo em outro terminal abre mais um shell no **mesmo** container.
-`run.sh` monta a pasta `workspace/` do clone por cima de `~/workspace`, com o seu usuário: o que
-você editar ou gravar ali (scripts, mundos, fotos) é o mesmo arquivo no host, sem reconstruir a imagem.
+`run.sh` monta duas pastas do clone, com o seu usuário: `tools/` por cima de `~/tools` e
+`workspace/` em `~/workspace`. O que você editar ou gravar nelas (scripts, mundos, fotos) é o
+mesmo arquivo no host, sem reconstruir a imagem. Crie os seus scripts em `~/workspace`.
 
 ### 3. Iniciar e parar a simulação
 
@@ -61,7 +67,7 @@ No container:
 
 ```bash
 start_simulation.sh            # mundo padrão iris_runway.sdf
-start_simulation.sh missao1    # um dos mundos customizados (workspace/gazebo/worlds)
+start_simulation.sh missao1    # um dos mundos customizados (tools/gazebo/worlds)
 ```
 
 Abre uma sessão tmux `drone` com seis painéis: Gazebo, SITL (MAVProxy com mapa e console),
@@ -87,8 +93,8 @@ stop_simulation.sh --purge     # idem, e apaga eeprom.bin, logs/, terrain/ e mav
 No container (qualquer painel ou shell):
 
 ```bash
-code ~/workspace                   # a pasta workspace/ do clone
-code ~/workspace/examples
+code ~/workspace                   # a sua pasta (workspace/ do clone)
+code ~/tools/examples              # os exemplos do time
 ```
 
 A janela abre no seu desktop. O VS Code enxerga o Python do container (`pymavlink`, `uav_api`,
@@ -97,12 +103,20 @@ sobrevivem ao fechamento do container.
 
 ### 5. Rodar um script Python que usa a uav_api e as fotos
 
-O script `workspace/examples/exemplo_missao.py` arma, decola a 5 m, voa 10 m para o norte, lê a foto mais
+O script `tools/examples/exemplo_missao.py` arma, decola a 5 m, voa 10 m para o norte, lê a foto mais
 recente gravada pelo `camera_saver.py`, mede o brilho e pousa. Com a simulação no ar, no painel
 livre (ou em qualquer shell do container):
 
 ```bash
-python3 ~/workspace/examples/exemplo_missao.py
+python3 ~/tools/examples/exemplo_missao.py
+```
+
+Para partir dele, copie-o para a sua pasta e edite a cópia:
+
+```bash
+cp ~/tools/examples/exemplo_missao.py ~/workspace/minha_missao.py
+code ~/workspace/minha_missao.py
+python3 ~/workspace/minha_missao.py
 ```
 
 A receita que ele segue, para os seus próprios scripts:
@@ -124,8 +138,8 @@ requests.get(f"{API}/command/land")
 ```
 
 A documentação interativa dos endpoints fica em `http://localhost:8000/docs` (também abre no
-navegador do host). Scripts dentro de `~/workspace` são os mesmos arquivos do clone no host, então
-edite no VS Code e rode no painel livre. Para usar outro projeto do host, acrescente um
+navegador do host). Scripts dentro de `~/workspace` são os mesmos arquivos de `workspace/` no
+host, então edite no VS Code e rode no painel livre. Para usar outro projeto do host, acrescente um
 `-v /caminho/no/host:/home/ardupilot/<nome>` ao `docker run` do `run.sh`.
 
 ### 6. Fechar o container
@@ -137,7 +151,8 @@ exit                 # (ou Ctrl+D) no shell principal, o do primeiro ./run.sh
 
 Ou, de qualquer terminal do host, `docker stop aerorio-sim`. Shells extras abertos com
 `./run.sh` são `docker exec`; sair deles não derruba o container. O container é removido ao
-fechar (`--rm`): o que estiver fora de `~/workspace` é perdido, o que estiver dentro fica no clone.
+fechar (`--rm`): o que estiver fora de `~/workspace` e `~/tools` é perdido, o que estiver dentro
+fica no clone.
 
 ## Referência
 
@@ -160,19 +175,21 @@ sudo systemctl restart docker
 Verificação dentro do container: `nvidia-smi` e `glxinfo -B` (deve mostrar
 `NVIDIA GeForce RTX ...` em vez de `llvmpipe`).
 
-### `run.sh`, a cópia do repositório e o usuário do container
+### `run.sh`, `tools/`, `workspace/` e o usuário do container
 
-O repositório tem duas partes: na raiz, o que só o host usa (`Dockerfile`, `run.sh`, este README);
-em `workspace/`, o que roda dentro do container (scripts, `tmux.conf`, `gazebo/`, `examples/`).
-O `Dockerfile` copia só `workspace/` para `/home/ardupilot/workspace` (o `.dockerignore` deixa de
-fora `workspace/photos/` e `__pycache__`), e os scripts entram no PATH como symlinks para lá.
-Assim a imagem funciona sozinha: `docker run -it --rm aerorio/sim` em qualquer máquina já tem
-mundos, scripts e exemplos (sem edição ao vivo nem fotos no host). `run.sh` monta a `workspace/`
-do clone por cima desse mesmo caminho, então a versão editada no host é a que roda.
+O repositório tem três partes: na raiz, o que só o host usa (`Dockerfile`, `run.sh`, este README);
+em `tools/`, o que a equipe mantém e roda dentro do container (scripts, `tmux.conf`, `gazebo/`,
+`examples/`); em `workspace/`, a pasta de trabalho de cada um (tarefas, scripts próprios, fotos).
+O `Dockerfile` copia só `tools/` para `/home/ardupilot/tools` (o `.dockerignore` deixa de fora
+`workspace/` e `__pycache__`), põe os scripts no PATH como symlinks para lá e cria
+`/home/ardupilot/workspace/photos` vazia. Assim a imagem funciona sozinha: `docker run -it --rm
+aerorio/sim` em qualquer máquina já tem mundos, scripts e exemplos (sem edição ao vivo nem fotos
+no host). `run.sh` monta a `tools/` do clone por cima desse mesmo caminho (a versão editada no
+host é a que roda) e a `workspace/` do clone em `~/workspace`.
 
 O usuário `ardupilot` do container é criado com o uid/gid de quem roda `./run.sh --build`
 (`--build-arg HOST_UID/HOST_GID`), por isso os arquivos que o container grava em `~/workspace`
-pertencem ao seu usuário no host. Se outra pessoa usar a imagem com outro uid, reconstrua.
+e `~/tools` pertencem ao seu usuário no host. Se outra pessoa usar a imagem com outro uid, reconstrua.
 `run.sh` também compartilha o X11 (`DISPLAY` e `/tmp/.X11-unix`), usa `--network host` e monta
 os volumes do VS Code.
 
@@ -195,7 +212,7 @@ os volumes do VS Code.
   a altura por `/telemetry/ned` em vez de confiar no código de resposta.
 - `stop_simulation.sh` manda Ctrl-C aos painéis, mata o que sobrar (Gazebo, SITL, MAVProxy,
   uav-api, ponte ROS 2, camera_saver) e fecha a sessão tmux. Sai com 1 se algo sobreviveu.
-- A configuração do tmux (mouse, clipboard via `xclip`) está em `workspace/tmux.conf` → `~/.tmux.conf`.
+- A configuração do tmux (mouse, clipboard via `xclip`) está em `tools/tmux.conf` → `~/.tmux.conf`.
 
 ### Fotos da câmera (`camera_saver.py`)
 
@@ -239,18 +256,18 @@ padrão dos shells); ele só funciona em `/usr/bin/python3`, que não tem `uav_a
 
 ### Mundos e modelos customizados
 
-A pasta `workspace/gazebo/` do repositório (`~/workspace/gazebo` no container) entra **antes** da
+A pasta `tools/gazebo/` do repositório (`~/tools/gazebo` no container) entra **antes** da
 `ardupilot_gazebo` no `GZ_SIM_RESOURCE_PATH`: um modelo com o mesmo nome aqui substitui o do upstream.
 
 ```
-workspace/gazebo/
+tools/gazebo/
 ├── models/<nome>/model.sdf + model.config   # ex.: basepadronizada, gabaritohexagono25
 ├── worlds/<nome>.sdf                        # ex.: missao1.sdf, bouncing.sdf
 └── normalize.sh
 ```
 
 Para atualizar a partir do Drive ("Arquivos do Gazebo"): baixe a pasta, extraia `models/` e
-`worlds/` aqui e rode `./workspace/gazebo/normalize.sh`. Ele apaga os `*Zone.Identifier` do Windows e
+`worlds/` aqui e rode `./tools/gazebo/normalize.sh`. Ele apaga os `*Zone.Identifier` do Windows e
 troca os caminhos absolutos da máquina de origem (`file:///home/grelhas/...`) por
 `model://<nome>`. Com o clone montado pelo `run.sh` a mudança já vale no próximo
 `start_simulation.sh`; reconstrua (`./run.sh --build`) para a imagem sozinha também ter os arquivos.

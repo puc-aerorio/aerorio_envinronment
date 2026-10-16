@@ -2,7 +2,7 @@
 """Exemplo mínimo de missão: uav_api (HTTP) + fotos gravadas pelo camera_saver.py.
 
 Rode dentro do container, com a simulação no ar (start_simulation.sh):
-    python3 ~/workspace/examples/exemplo_missao.py
+    python3 ~/tools/examples/exemplo_missao.py
 
 O que faz: espera a API, arma, decola a 5 m, voa 10 m para o norte, lê a foto mais recente
 da câmera em $DRONE_PHOTOS_DIR (gravada pelo painel do camera_saver), mede o brilho médio

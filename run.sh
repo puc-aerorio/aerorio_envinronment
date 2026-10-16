@@ -10,7 +10,8 @@ set -euo pipefail
 IMAGE="aerorio/sim"
 NAME="aerorio-sim"
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-WORKSPACE="$HERE/workspace"   # pasta workspace/ do clone, montada em /home/ardupilot/workspace
+TOOLS="$HERE/tools"           # scripts/mundos do time, montados em /home/ardupilot/tools
+WORKSPACE="$HERE/workspace"   # pasta do usuário (scripts próprios, fotos), montada em /home/ardupilot/workspace
 
 BUILD=0; FORCE_CPU=0
 for arg in "$@"; do
@@ -61,6 +62,7 @@ exec docker run -it --rm \
   -e DISPLAY="${DISPLAY:-:0}" \
   -e QT_X11_NO_MITSHM=1 \
   -v /tmp/.X11-unix:/tmp/.X11-unix:rw \
+  -v "$TOOLS":/home/ardupilot/tools \
   -v "$WORKSPACE":/home/ardupilot/workspace \
   -v aerorio-sim-vscode-config:/home/ardupilot/.config/Code \
   -v aerorio-sim-vscode-ext:/home/ardupilot/.vscode \

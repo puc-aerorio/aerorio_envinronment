@@ -7,7 +7,7 @@
 #
 # Uso: start_simulation.sh [mundo]
 #   mundo: "missao1", "missao1.sdf" ou um caminho absoluto (padrão: iris_runway.sdf).
-#   Procura primeiro em ~/workspace/gazebo/worlds (customizados), depois em ~/ardupilot_gazebo/worlds.
+#   Procura primeiro em ~/tools/gazebo/worlds (customizados), depois em ~/ardupilot_gazebo/worlds.
 #   Se a sessão "drone" já existir, apenas anexa a ela. Para encerrar tudo: stop_simulation.sh
 #
 # Uso interno: start_simulation.sh --api IP | --bridge | --saver   (painéis 2, 3 e 4)
@@ -15,7 +15,7 @@ set -euo pipefail
 
 SESSION="drone"
 SELF="$(readlink -f "${BASH_SOURCE[0]}")"
-WORLD_DIRS=("$HOME/workspace/gazebo/worlds" "$HOME/ardupilot_gazebo/worlds")
+WORLD_DIRS=("$HOME/tools/gazebo/worlds" "$HOME/ardupilot_gazebo/worlds")
 
 # ---------------------------------------------------------------------------
 # Painel 3: espera o Gazebo publicar tópicos de câmera e faz a ponte de todos.

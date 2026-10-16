@@ -117,7 +117,7 @@ def normalizar_forma(forma: str) -> str:
 
 def localizar_sdf(mundo: str, inicio: str | None = None) -> str | None:
     """Procura gazebo/worlds/<mundo>.sdf: $MISSAO_SDF; depois subindo os diretórios a partir
-    de `inicio` e da pasta deste módulo; por fim ~/workspace/gazebo/worlds."""
+    de `inicio` e da pasta deste módulo; por fim ~/tools/gazebo/worlds."""
     env = os.environ.get("MISSAO_SDF")
     if env and os.path.isfile(env):
         return env
@@ -133,7 +133,7 @@ def localizar_sdf(mundo: str, inicio: str | None = None) -> str | None:
             if pai == d:
                 break
             d = pai
-    cand = os.path.expanduser(f"~/workspace/gazebo/worlds/{nome}")
+    cand = os.path.expanduser(f"~/tools/gazebo/worlds/{nome}")
     return cand if os.path.isfile(cand) else None
 
 
@@ -394,7 +394,8 @@ class Avaliador:
             linha("Tempo", f"t = {r['tempo_s']:.1f} s; 15 · clamp((300 − t)/240, 0, 1)",
                   r["pts_tempo"], PTS_TEMPO_MAX),
             linha("Altitude", f"máx {r['alt_max_m']:.2f} m; {r['amostras_acima_6m']} amostra(s) "
-                  f"> {ALT_MAX_M:.0f} m × (−{PENALIDADE_POR_AMOSTRA:.0f})", -r["penalidade_altitude"]),
+                  f"> {ALT_MAX_M:.0f} m × (−{PENALIDADE_POR_AMOSTRA:.0f})",
+                  -r["penalidade_altitude"] if r["penalidade_altitude"] else 0.0),
             linha("Arena", "SAIU DA ARENA → ELIMINADO (total = 0)" if r["saiu_arena"]
                   else "permaneceu dentro"),
             "-" * L,
