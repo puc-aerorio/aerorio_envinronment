@@ -33,7 +33,12 @@ fi
 
 # 2. Processos que ainda estiverem vivos: SIGTERM, depois SIGKILL.
 # Nunca mira no PID 1 (init do container), neste script nem no shell que o chamou.
-alive() { pgrep -f "$1" 2>/dev/null | grep -vxE "1|$$|$PPID" || true; }
+# Ignora zumbis (<defunct>): já morreram, só esperam o pai recolher.
+alive() {
+  local pids
+  pids=$(pgrep -f "$1" 2>/dev/null | grep -vxE "1|$$|$PPID") || return 0
+  ps -o pid= -o stat= -p $(echo $pids | tr ' ' ',') 2>/dev/null | awk '$2 !~ /Z/ {print $1}'
+}
 for p in "${PATTERNS[@]}"; do
   pids=$(alive "$p")
   [[ -n "$pids" ]] || continue

@@ -9,8 +9,10 @@
 #   mundo: "missao1", "missao1.sdf" ou um caminho absoluto (padrão: iris_runway.sdf).
 #   Procura primeiro em ~/tools/gazebo/worlds (customizados), depois em ~/ardupilot_gazebo/worlds.
 #   Se a sessão "drone" já existir, apenas anexa a ela. Para encerrar tudo: stop_simulation.sh
+#   Para voltar o drone ao estado inicial sem derrubar o Gazebo: reset_drone.sh
 #
-# Uso interno: start_simulation.sh --api IP | --bridge | --saver   (painéis 2, 3 e 4)
+# Uso interno (comandos dos painéis 1 a 4; reset_drone.sh reusa --sitl e --api):
+#   start_simulation.sh --sitl MUNDO IP | --api IP | --bridge | --saver
 set -euo pipefail
 
 SESSION="drone"
@@ -70,6 +72,24 @@ print(" ".join("--add-param-file=" + os.path.join(root, f) for f in files))
 EOF
 }
 
+# Veículo conforme o mundo: zephyr* é avião, o resto é o Iris (copter). Imprime "VEICULO FRAME".
+vehicle_for_world() {
+  case "$(basename "$1")" in
+    zephyr*) echo "ArduPlane gazebo-zephyr" ;;
+    *)       echo "ArduCopter gazebo-iris" ;;
+  esac
+}
+
+# Painel 1: SITL (-N: não recompila; o binário já vem pronto na imagem). O sim_vehicle.py abre
+# o binário numa janela tmux "ArduCopter" e o MAVProxy fica neste painel; Ctrl-C aqui encerra os dois.
+sitl() {
+  local world="$1" ip="$2" vehicle frame param_args
+  read -r vehicle frame <<<"$(vehicle_for_world "$world")"
+  param_args="$(frame_param_args "$vehicle" "$frame")"
+  # shellcheck disable=SC2086  # param_args são vários argumentos separados por espaço
+  exec sim_vehicle.py -N -v "$vehicle" -f "$frame" --model JSON $param_args --map --console --out "$ip:14550"
+}
+
 # Painel 2: uav-api. Ele desiste se o SITL ainda não responde (o Gazebo pode demorar a carregar
 # o mundo), então tenta de novo até conectar. Ctrl-C interrompe o laço.
 api() {
@@ -82,6 +102,7 @@ api() {
   done
 }
 case "${1:-}" in
+  --sitl)   sitl "${2:?uso: --sitl MUNDO IP}" "${3:?uso: --sitl MUNDO IP}" ;;
   --api)    api "${2:?uso: --api IP}" ;;
   --bridge) bridge ;;
   --saver)  saver ;;
@@ -122,13 +143,7 @@ fi
 IP="$(hostname -I 2>/dev/null | awk '{print $1}')"
 IP="${IP:-127.0.0.1}"
 
-# Veículo conforme o mundo: zephyr* é avião, o resto é o Iris (copter).
-VEHICLE="ArduCopter"; FRAME="gazebo-iris"
-case "$(basename "$WORLD_PATH")" in
-  zephyr*) VEHICLE="ArduPlane"; FRAME="gazebo-zephyr" ;;
-esac
-
-PARAM_ARGS="$(frame_param_args "$VEHICLE" "$FRAME")"
+read -r VEHICLE FRAME <<<"$(vehicle_for_world "$WORLD_PATH")"
 
 echo "mundo:    $WORLD_PATH"
 echo "veículo:  $VEHICLE ($FRAME)"
@@ -143,14 +158,19 @@ tmux new-session -d -s "$SESSION" -n sim
 # 0: Gazebo
 tmux send-keys -t "$SESSION" "gz sim -v4 -r '$WORLD_PATH'" C-m
 
-# 1: SITL (-N: não recompila; o binário já vem pronto na imagem)
-tmux split-window -h -t "$SESSION"
-tmux send-keys -t "$SESSION" \
-  "sleep 5; sim_vehicle.py -N -v $VEHICLE -f $FRAME --model JSON $PARAM_ARGS --map --console --out $IP:14550" C-m
+# 1: SITL. Guardamos o id do painel (e os parâmetros) no ambiente da sessão tmux para o
+#    reset_drone.sh relançar o SITL e a uav-api nos mesmos painéis.
+SITL_PANE="$(tmux split-window -h -P -F '#{pane_id}' -t "$SESSION")"
+tmux send-keys -t "$SITL_PANE" "sleep 5; '$SELF' --sitl '$WORLD_PATH' $IP" C-m
 
 # 2: uav-api (SITL externo: sem --simulated, que no uav_api >= 0.3 é flag sem valor)
-tmux split-window -v -t "$SESSION"
-tmux send-keys -t "$SESSION" "sleep 15; '$SELF' --api $IP" C-m
+API_PANE="$(tmux split-window -v -P -F '#{pane_id}' -t "$SESSION")"
+tmux send-keys -t "$API_PANE" "sleep 15; '$SELF' --api $IP" C-m
+
+tmux set-environment -t "$SESSION" SIM_WORLD "$WORLD_PATH"
+tmux set-environment -t "$SESSION" SIM_IP "$IP"
+tmux set-environment -t "$SESSION" SIM_PANE_SITL "$SITL_PANE"
+tmux set-environment -t "$SESSION" SIM_PANE_API "$API_PANE"
 
 # 3: ponte ROS 2
 tmux select-pane -t "$SESSION:0.0"

@@ -19,6 +19,7 @@ Estrutura do repositório:
 ├── tools/                     # arquivos do time, usados DENTRO do container (vira ~/tools)
 │   ├── start_simulation.sh    # sobe Gazebo + SITL + uav-api + ponte + saver no tmux
 │   ├── stop_simulation.sh     # derruba tudo (--purge limpa os arquivos do SITL)
+│   ├── reset_drone.sh         # volta o drone ao início (reinicia só SITL + uav-api)
 │   ├── camera_saver.py        # grava as fotos da câmera em workspace/photos/
 │   ├── tmux.conf              # mouse e clipboard no tmux (vira ~/.tmux.conf)
 │   ├── examples/exemplo_missao.py
@@ -80,6 +81,17 @@ Espere a API avisar `API is ready` antes de mandar comandos.
 - Copiar/colar: arrastar o texto copia para o clipboard do host; `Ctrl+Shift+V` ou botão do meio
   colam. Para selecionar pelo próprio terminal, arraste segurando `Shift`.
 - `Ctrl-b d` desanexa (tudo continua rodando); `start_simulation.sh` de novo reanexa.
+
+Para tentar a missão de novo (depois de mudar o código, por exemplo) sem esperar o Gazebo
+carregar tudo outra vez, reinicie só o drone, no painel livre:
+
+```bash
+reset_drone.sh                 # drone de volta à pose inicial, SITL e uav-api novos
+reset_drone.sh --purge         # idem, e apaga eeprom.bin/logs do SITL (parâmetros ao padrão)
+```
+
+Gazebo, ponte e `camera_saver.py` continuam rodando; o script só termina quando a uav-api
+responde de novo, então `reset_drone.sh && python3 ~/workspace/missao.py` funciona.
 
 Para parar:
 
@@ -212,6 +224,17 @@ os volumes do VS Code.
   a altura por `/telemetry/ned` em vez de confiar no código de resposta.
 - `stop_simulation.sh` manda Ctrl-C aos painéis, mata o que sobrar (Gazebo, SITL, MAVProxy,
   uav-api, ponte ROS 2, camera_saver) e fecha a sessão tmux. Sai com 1 se algo sobreviveu.
+- `reset_drone.sh` reinicia só o SITL e a uav-api, nos mesmos painéis (o `start_simulation.sh`
+  guarda os ids dos painéis, o mundo e o IP no ambiente da sessão tmux e expõe o comando do
+  SITL como `--sitl MUNDO IP`). Os modelos usam o plugin do ArduPilot em `lock_step`: quando o
+  SITL some, o plugin bloqueia a física do Gazebo esperando pacotes, o que parece "quebrar" a
+  simulação. Com o mundo **pausado** ele não espera, então o script faz: para a uav-api →
+  pausa → para o SITL → teleporta o drone para a pose do seu `<include>` no `.sdf` do mundo
+  (serviço `/world/<mundo>/set_pose`) → despausa → sobe SITL e uav-api de novo. Não usa o
+  "reset" do mundo de propósito: o gz-sim 8 não implementa o reset só dos modelos, e o reset
+  completo zera o tempo de simulação, mas o plugin não zera o próprio relógio e ficaria parado
+  até o tempo antigo passar. Ao reconectar, o Gazebo loga `ArduPilot controller has reset` (normal).
+  Funciona também com o drone em voo (ele volta ao chão, parado, na origem).
 - A configuração do tmux (mouse, clipboard via `xclip`) está em `tools/tmux.conf` → `~/.tmux.conf`.
 
 ### Fotos da câmera (`camera_saver.py`)

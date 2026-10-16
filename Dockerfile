@@ -133,10 +133,11 @@ RUN git clone --branch "${ARDUPILOT_GAZEBO_REF}" \
 #     (file:///home/grelhas/...) por URIs portáveis model://<nome>.
 COPY --chown=ardupilot:ardupilot tools/ /home/ardupilot/tools/
 RUN chmod +x /home/ardupilot/tools/gazebo/normalize.sh /home/ardupilot/tools/start_simulation.sh /home/ardupilot/tools/stop_simulation.sh \
-       /home/ardupilot/tools/camera_saver.py /home/ardupilot/tools/examples/*.py \
+       /home/ardupilot/tools/reset_drone.sh /home/ardupilot/tools/camera_saver.py /home/ardupilot/tools/examples/*.py \
     && /home/ardupilot/tools/gazebo/normalize.sh /home/ardupilot/tools/gazebo \
     && sudo ln -sf /home/ardupilot/tools/start_simulation.sh /usr/local/bin/start_simulation.sh \
     && sudo ln -sf /home/ardupilot/tools/stop_simulation.sh /usr/local/bin/stop_simulation.sh \
+    && sudo ln -sf /home/ardupilot/tools/reset_drone.sh /usr/local/bin/reset_drone.sh \
     && sudo ln -sf /home/ardupilot/tools/camera_saver.py /usr/local/bin/camera_saver.py \
     && ln -sf /home/ardupilot/tools/tmux.conf /home/ardupilot/.tmux.conf \
     && mkdir -p /home/ardupilot/workspace/photos
