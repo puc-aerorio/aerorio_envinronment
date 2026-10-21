@@ -56,7 +56,6 @@ if command -v xhost >/dev/null; then xhost +local:docker >/dev/null || true; fi
 
 exec docker run -it --rm \
   --name "$NAME" \
-  --network host \
   "${GPU_ARGS[@]}" \
   "${DRI_ARGS[@]}" \
   -e DISPLAY="${DISPLAY:-:0}" \
@@ -66,4 +65,5 @@ exec docker run -it --rm \
   -v "$WORKSPACE":/home/ardupilot/workspace \
   -v aerorio-sim-vscode-config:/home/ardupilot/.config/Code \
   -v aerorio-sim-vscode-ext:/home/ardupilot/.vscode \
+  -p 8000:8000 \
   "$IMAGE"
