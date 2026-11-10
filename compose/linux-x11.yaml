@@ -1,0 +1,8 @@
+# Host Linux: as janelas (Gazebo, MAVProxy) abrem no X11/XWayland do host.
+services:
+  sim:
+    environment:
+      DISPLAY: ${DISPLAY:-:0}
+      QT_X11_NO_MITSHM: "1"
+    volumes:
+      - /tmp/.X11-unix:/tmp/.X11-unix:rw

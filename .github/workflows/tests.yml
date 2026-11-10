@@ -1,0 +1,20 @@
+# Static and launcher layers of the test suite (see README, "Testes"). Neither needs the Image:
+# the launcher tests fake the Host and stub docker/nvidia-smi.
+name: tests
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  static-and-launcher:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - run: uv sync --locked
+      - run: uv run pytest -m "static or launcher"

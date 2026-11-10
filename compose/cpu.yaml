@@ -1,0 +1,5 @@
+# Sem GPU utilizável (ou ./run.sh --cpu): renderização só por software (Mesa llvmpipe).
+services:
+  sim:
+    environment:
+      LIBGL_ALWAYS_SOFTWARE: "1"

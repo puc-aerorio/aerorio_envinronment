@@ -1,0 +1,9 @@
+# Host Linux com /dev/dri: o Mesa renderiza na GPU integrada (Intel/AMD) em vez do llvmpipe.
+# Fica separado do linux-x11 porque o compose não tem device opcional e há hosts sem /dev/dri.
+services:
+  sim:
+    devices:
+      - /dev/dri:/dev/dri
+    # /dev/dri/renderD* pertence ao grupo "render" do host; o usuário do container precisa dele.
+    group_add:
+      - ${RENDER_GID:?o run.sh define RENDER_GID}

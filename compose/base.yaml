@@ -1,0 +1,25 @@
+# Configuração comum do container. O run.sh soma a este arquivo os overrides do host e da GPU
+# (linux-x11, linux-dri, linux-nvidia, cpu); os caminhos relativos são da raiz do clone
+# (run.sh passa --project-directory).
+name: aerorio
+
+services:
+  sim:
+    image: aerorio/sim
+    container_name: aerorio-sim
+    # Rede do host: uav-api (:8000), SITL/MAVProxy e Gazebo acessíveis direto do host.
+    network_mode: host
+    stdin_open: true
+    tty: true
+    volumes:
+      - ./tools:/home/ardupilot/tools          # scripts/mundos do time (editáveis no host)
+      - ./workspace:/home/ardupilot/workspace  # pasta do usuário (scripts próprios, fotos)
+      - vscode-config:/home/ardupilot/.config/Code
+      - vscode-ext:/home/ardupilot/.vscode
+
+volumes:
+  # Mesmos nomes de antes do compose, para não perder configurações e extensões do VS Code.
+  vscode-config:
+    name: aerorio-sim-vscode-config
+  vscode-ext:
+    name: aerorio-sim-vscode-ext

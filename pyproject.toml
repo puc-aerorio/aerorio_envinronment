@@ -19,7 +19,7 @@ package = false
 testpaths = ["tests"]
 addopts = ["--strict-markers", "--strict-config"]
 markers = [
-    "static: shellcheck, hadolint and ruff over the repo; no Docker needed",
+    "static: shellcheck, hadolint, ruff and docker compose config; no Image needed",
     "smoke: the Image as a black box (docker run / docker exec)",
     "simulation: a headless Simulation flown through uav-api",
     "launcher: run.sh decisions against faked Hosts",
