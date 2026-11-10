@@ -87,6 +87,9 @@ HOST_CASES = {
     "nvidia": ({"nvidia_smi_works": True, "docker_nvidia_runtime": True}, ()),
     "hybrid": ({"dri": True, "nvidia_smi_works": True, "docker_nvidia_runtime": True}, ()),
     "cpu-flag": ({"dri": True}, ("--cpu",)),
+    "wsl": ({"wsl": True, "dxg": True}, ()),
+    "wsl-no-dxg": ({"wsl": True}, ()),
+    "wsl-docker-desktop": ({"wsl": True, "dxg": True, "docker_desktop": True}, ()),
 }
 
 
