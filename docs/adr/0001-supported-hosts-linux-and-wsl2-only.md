@@ -1,0 +1,3 @@
+# Supported Hosts: native Linux and WSL2 only
+
+The Container must run, and perform well (Gazebo RTF ≥ 0.8 with a GPU), on two Host kinds: native Ubuntu (**Linux Host**) and a Linux distro under WSL2 on Windows 11 (**WSL Host**). Docker Desktop on Windows without WSL2 (Hyper-V backend, PowerShell-only) and macOS are explicitly unsupported: Hyper-V has no GPU passthrough, so it could never meet the performance bar, and supporting it would have needed a second launcher (`run.ps1`) and an external X server. On a WSL Host the clone must live in the distro's filesystem; `/mnt/c` is refused by the launcher because it compounds CRLF, permission and I/O-speed problems.
