@@ -14,6 +14,7 @@ Estrutura do repositório:
 .
 ├── Dockerfile                 # receita da imagem aerorio/sim
 ├── run.sh                     # constrói (--build) e abre o container no host
+├── compose/                   # configuração do container (base + overrides por host/GPU)
 ├── README.md
 ├── .dockerignore / .gitignore
 ├── tools/                     # arquivos do time, usados DENTRO do container (vira ~/tools)
@@ -152,7 +153,7 @@ requests.get(f"{API}/command/land")
 A documentação interativa dos endpoints fica em `http://localhost:8000/docs` (também abre no
 navegador do host). Scripts dentro de `~/workspace` são os mesmos arquivos de `workspace/` no
 host, então edite no VS Code e rode no painel livre. Para usar outro projeto do host, acrescente um
-`-v /caminho/no/host:/home/ardupilot/<nome>` ao `docker run` do `run.sh`.
+`- /caminho/no/host:/home/ardupilot/<nome>` aos `volumes:` de `compose/base.yaml`.
 
 ### 6. Fechar o container
 
@@ -170,9 +171,12 @@ fica no clone.
 
 ### Aceleração com GPU NVIDIA (host)
 
-`run.sh` adiciona `--gpus all` automaticamente quando `nvidia-smi` funciona **e** o Docker tem
-o runtime `nvidia`. Caso contrário avisa e roda em Mesa (iGPU via `/dev/dri` ou software).
-`./run.sh --cpu` força o modo sem GPU. Para habilitar a GPU, instale o NVIDIA Container Toolkit:
+`run.sh` usa a GPU NVIDIA (`compose/linux-nvidia.yaml`) automaticamente quando `nvidia-smi`
+funciona **e** o Docker tem o runtime `nvidia`. Em notebooks híbridos (Intel na tela, NVIDIA
+dedicada) as variáveis de PRIME render offload fazem o Gazebo renderizar na NVIDIA. Sem o toolkit,
+avisa e roda em Mesa: na GPU integrada via `/dev/dri` (`compose/linux-dri.yaml`) ou por software
+(`compose/cpu.yaml`). `./run.sh --cpu` força renderização por software. Para habilitar a GPU,
+instale o NVIDIA Container Toolkit:
 
 ```bash
 curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey | sudo gpg --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg
@@ -202,8 +206,11 @@ host é a que roda) e a `workspace/` do clone em `~/workspace`.
 O usuário `ardupilot` do container é criado com o uid/gid de quem roda `./run.sh --build`
 (`--build-arg HOST_UID/HOST_GID`), por isso os arquivos que o container grava em `~/workspace`
 e `~/tools` pertencem ao seu usuário no host. Se outra pessoa usar a imagem com outro uid, reconstrua.
-`run.sh` também compartilha o X11 (`DISPLAY` e `/tmp/.X11-unix`), usa `--network host` e monta
-os volumes do VS Code.
+Toda a configuração do container está em `compose/`: `base.yaml` (rede do host, pastas montadas,
+volumes do VS Code, nome `aerorio-sim`) mais os overrides que o `run.sh` escolhe para o host:
+`linux-x11.yaml` (`DISPLAY` e `/tmp/.X11-unix`), `linux-dri.yaml`, `linux-nvidia.yaml` e `cpu.yaml`.
+O `run.sh` só detecta o host e chama `docker compose`; `./run.sh --dry-run` mostra o comando
+escolhido sem executar nada.
 
 ### `start_simulation.sh` em detalhe
 
@@ -325,10 +332,12 @@ Os testes são divididos em camadas, escolhidas com `-m`:
 | `static`     | shellcheck nos scripts shell, hadolint no `Dockerfile`, ruff no Python de `tools/` e `tests/` |
 | `smoke`      | a imagem como caixa-preta (`docker run` / `docker exec`)              |
 | `simulation` | uma simulação headless voando pela uav-api                            |
-| `launcher`   | as decisões do `run.sh` em hosts Linux/WSL simulados                  |
+| `launcher`   | as decisões do `run.sh` em hosts Linux simulados                      |
 
 ```bash
-uv run pytest -m static      # camada estática (é o que o CI roda em todo pull request)
+uv run pytest -m static      # camada estática
+uv run pytest -m launcher    # decisões do run.sh (hosts simulados, sem precisar da imagem)
+uv run pytest -m "static or launcher"   # o que o CI roda em todo pull request
 ```
 
 O `uv` instala sozinho as versões fixadas em `pyproject.toml`/`uv.lock` (pytest, ruff,

@@ -1,0 +1,15 @@
+# Host Linux com GPU NVIDIA e NVIDIA Container Toolkit (equivale ao antigo --gpus all).
+# As variáveis de PRIME render offload fazem o OpenGL ir para a NVIDIA mesmo em notebooks
+# híbridos onde a Intel controla a tela; em desktops só com NVIDIA não mudam nada.
+services:
+  sim:
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    environment:
+      __NV_PRIME_RENDER_OFFLOAD: "1"
+      __GLX_VENDOR_LIBRARY_NAME: nvidia
