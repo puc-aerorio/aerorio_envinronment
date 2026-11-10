@@ -35,3 +35,9 @@ def test_hadolint() -> None:
 def test_ruff() -> None:
     result = run_in_repo(str(VENV_BIN / "ruff"), "check", "tools", "tests")
     assert result.returncode == 0, result.stdout + result.stderr
+
+
+def test_ruff_format() -> None:
+    # Only tests/: the team's Tools keep their own formatting.
+    result = run_in_repo(str(VENV_BIN / "ruff"), "format", "--check", "tests")
+    assert result.returncode == 0, result.stdout + result.stderr

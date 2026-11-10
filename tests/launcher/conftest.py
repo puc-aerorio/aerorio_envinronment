@@ -22,8 +22,8 @@ class DryRun:
     compose_files: list[str] = field(default_factory=list)
     command: list[str] = field(default_factory=list)
 
-    def container_environment(self) -> dict[str, str]:
-        """The environment the Container would get: the printed compose command, resolved by
+    def container_config(self) -> dict:
+        """The Container's resolved service config: the printed compose command, resolved by
         the real `docker compose config` instead of being run."""
         docker = shutil.which("docker")
         assert docker, "docker (with compose) is needed to resolve the compose files"
@@ -38,7 +38,11 @@ class DryRun:
             check=False,
         )
         assert result.returncode == 0, result.stderr
-        return json.loads(result.stdout)["services"]["sim"].get("environment", {})
+        return json.loads(result.stdout)["services"]["sim"]
+
+    def container_environment(self) -> dict[str, str]:
+        """The environment the Container would get."""
+        return self.container_config().get("environment", {})
 
 
 def _parse(stdout: str) -> tuple[dict[str, str], list[str], list[str]]:
