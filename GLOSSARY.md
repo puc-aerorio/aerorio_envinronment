@@ -60,6 +60,14 @@ _Avoid_: object, asset
 A camera frame saved as `frame_NNNNN.png` by the Camera Saver into the Workspace.
 _Avoid_: image (reserved for the Docker Image), frame, snapshot
 
+**uav-api**:
+The HTTP API a Simulation exposes on port 8000, through which missions command and read the drone; its interactive docs are at `/docs`.
+_Avoid_: the API, the server, uav_api (that is the Python package)
+
+**Ground Station**:
+Mission Planner or QGroundControl running on the Host, receiving the Simulation's MAVLink.
+_Avoid_: GCS, QGC, MP
+
 **Camera Saver**:
 The process that writes one Photo per interval from the drone's camera topic.
 _Avoid_: recorder, capture script
