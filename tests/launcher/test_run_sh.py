@@ -79,3 +79,25 @@ def test_dri_without_render_node_uses_the_containers_video_group(host):
     run = host.dry_run()
     assert run.returncode == 0, run.stderr
     assert run.env["RENDER_GID"] == "video"
+
+
+HOST_CASES = {
+    "no-gpu": ({}, ()),
+    "igpu": ({"dri": True}, ()),
+    "nvidia": ({"nvidia_smi_works": True, "docker_nvidia_runtime": True}, ()),
+    "hybrid": ({"dri": True, "nvidia_smi_works": True, "docker_nvidia_runtime": True}, ()),
+    "cpu-flag": ({"dri": True}, ("--cpu",)),
+}
+
+
+@pytest.mark.parametrize("case", HOST_CASES, ids=str)
+def test_container_uses_host_networking_and_publishes_no_ports(host, case):
+    # ADR-0003: published ports cut the Host off from the SITL, Ground Stations and Gazebo.
+    fields, args = HOST_CASES[case]
+    for name, value in fields.items():
+        setattr(host, name, value)
+    run = host.dry_run(*args)
+    assert run.returncode == 0, run.stderr
+    config = run.container_config()
+    assert config.get("network_mode") == "host"
+    assert not config.get("ports"), "see docs/adr/0003-host-networking-on-every-host.md"
