@@ -1,0 +1,11 @@
+# Host WSL: as janelas (Gazebo, MAVProxy) abrem no Windows pelo WSLg (X11 e Wayland).
+services:
+  sim:
+    environment:
+      DISPLAY: ${DISPLAY:-:0}
+      WAYLAND_DISPLAY: ${WAYLAND_DISPLAY:-wayland-0}
+      XDG_RUNTIME_DIR: /mnt/wslg/runtime-dir
+      QT_X11_NO_MITSHM: "1"
+    volumes:
+      - /tmp/.X11-unix:/tmp/.X11-unix:rw
+      - /mnt/wslg:/mnt/wslg

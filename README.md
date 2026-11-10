@@ -191,6 +191,30 @@ sudo systemctl restart docker
 Verificação dentro do container: `nvidia-smi` e `glxinfo -B` (deve mostrar
 `NVIDIA GeForce RTX ...` em vez de `llvmpipe`).
 
+### Host WSL (Windows 11)
+
+O mesmo `./run.sh` funciona numa distro WSL2 no Windows 11; ele reconhece o WSL pelo kernel e troca
+os overrides do compose. **Este caminho ainda não foi verificado num WSL de verdade**: se algo não
+funcionar, abra uma issue com a saída de `./run.sh --dry-run`.
+
+- **Clone dentro da distro** (`~/...`), nunca num disco do Windows: de um clone em `/mnt/c`,
+  `/mnt/d`... o `run.sh` se recusa a rodar (quebras de linha CRLF, permissões e E/S lenta) e mostra
+  como clonar de novo no lugar certo.
+- **Janelas** (`compose/wsl.yaml`): o Gazebo e o MAVProxy abrem pelo WSLg, sem instalar servidor X
+  no Windows.
+- **GPU** (`compose/wsl-d3d12.yaml`): com `/dev/dxg`, o Mesa renderiza na GPU do Windows pelo driver
+  `d3d12`, de qualquer fabricante. No WSL não se usa o NVIDIA Container Toolkit / `--gpus all` para
+  renderizar, mesmo com placa NVIDIA. Em notebooks híbridos a NVIDIA é a escolhida; para trocar,
+  passe parte do nome da GPU: `MESA_D3D12_DEFAULT_ADAPTER_NAME=Intel ./run.sh`. Sem `/dev/dxg` (ou
+  com `--cpu`) a renderização é por software.
+- **Docker**: o recomendado é o Docker Engine instalado na própria distro; a rede do host já deixa
+  `http://localhost:8000/docs` (uav-api) acessível do navegador do Windows. Com o Docker Desktop
+  (integração com o WSL) é preciso ligar uma vez Settings → Resources → Network → "Enable host
+  networking" (Docker Desktop 4.34+); o `run.sh` avisa quando não consegue confirmar que está
+  ligado. Não use `-p` para contornar (ver `docs/adr/0003-host-networking-on-every-host.md`).
+- **Memória para o build**: `./run.sh --build` avisa quando o WSL está limitado a menos de uns
+  8 GB. Aumente em `%UserProfile%\.wslconfig` (`[wsl2]`, `memory=8GB`) e rode `wsl --shutdown`.
+
 ### `run.sh`, `tools/`, `workspace/` e o usuário do container
 
 O repositório tem três partes: na raiz, o que só o host usa (`Dockerfile`, `run.sh`, este README);
@@ -208,7 +232,8 @@ O usuário `ardupilot` do container é criado com o uid/gid de quem roda `./run.
 e `~/tools` pertencem ao seu usuário no host. Se outra pessoa usar a imagem com outro uid, reconstrua.
 Toda a configuração do container está em `compose/`: `base.yaml` (rede do host, pastas montadas,
 volumes do VS Code, nome `aerorio-sim`) mais os overrides que o `run.sh` escolhe para o host:
-`linux-x11.yaml` (`DISPLAY` e `/tmp/.X11-unix`), `linux-dri.yaml`, `linux-nvidia.yaml` e `cpu.yaml`.
+`linux-x11.yaml` (`DISPLAY` e `/tmp/.X11-unix`), `linux-dri.yaml`, `linux-nvidia.yaml`, `wsl.yaml`
+e `wsl-d3d12.yaml` (ver "Host WSL") e `cpu.yaml`.
 O `run.sh` só detecta o host e chama `docker compose`; `./run.sh --dry-run` mostra o comando
 escolhido sem executar nada.
 
@@ -332,7 +357,7 @@ Os testes são divididos em camadas, escolhidas com `-m`:
 | `static`     | shellcheck nos scripts shell, hadolint no `Dockerfile`, ruff no Python de `tools/` e `tests/` |
 | `smoke`      | a imagem como caixa-preta (`docker run` / `docker exec`)              |
 | `simulation` | uma simulação headless voando pela uav-api                            |
-| `launcher`   | as decisões do `run.sh` em hosts Linux simulados                      |
+| `launcher`   | as decisões do `run.sh` em hosts Linux e WSL simulados                |
 
 ```bash
 uv run pytest -m static      # camada estática

@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 # Sobe o container de simulação via docker compose (arquivos em compose/).
-# Detecta a GPU: NVIDIA se nvidia-smi funciona e o Docker tem o runtime "nvidia" (NVIDIA Container
-# Toolkit); GPU integrada se existe /dev/dri; senão renderização por software (Mesa).
+# Host Linux: detecta a GPU: NVIDIA se nvidia-smi funciona e o Docker tem o runtime "nvidia" (NVIDIA
+# Container Toolkit); GPU integrada se existe /dev/dri; senão renderização por software (Mesa).
+# Host WSL: janelas pelo WSLg e GPU pelo Mesa d3d12 (/dev/dxg); o clone não pode estar num disco do
+# Windows (/mnt/c...).
 #
 #   ./run.sh            # abre um shell no container (ou entra no container já em execução)
 #   ./run.sh --build    # (re)constrói a imagem antes de subir
@@ -46,6 +48,39 @@ finish() {
 }
 
 # ---------------------------------------------------------------------------
+# Host WSL: onde está o clone, memória para o build
+# ---------------------------------------------------------------------------
+# O kernel do WSL2 se identifica como "...-microsoft-standard-WSL2"; um kernel customizado pode não
+# ter esse nome, mas o WSL sempre registra o interop (rodar .exe a partir da distro).
+is_wsl() {
+  grep -qi microsoft "$HOST_ROOT/proc/sys/kernel/osrelease" 2>/dev/null \
+    || compgen -G "$HOST_ROOT/proc/sys/fs/binfmt_misc/WSLInterop*" >/dev/null
+}
+
+if is_wsl; then
+  # Clone num disco do Windows (/mnt/c, /mnt/d...): quebras de linha CRLF, permissões e E/S lenta.
+  # (pwd -P: um symlink em ~ apontando para /mnt/c continua sendo um clone no disco do Windows.)
+  clone="$(pwd -P)"; clone="${clone#"$HOST_ROOT"}"
+  if [[ "$clone" =~ ^/mnt/[a-z](/|$) ]]; then
+    say "ERRO: este clone está num disco do Windows ($clone)."
+    say "      No WSL o clone precisa ficar no sistema de arquivos da distro. Clone de novo lá:"
+    say "        cd ~ && git clone <url-do-repositório> && cd $(basename "$clone") && ./run.sh"
+    say "      (copie antes o que você tiver em workspace/; ver README.md, \"Host WSL\")"
+    exit 1
+  fi
+
+  # Compilar o ArduPilot com pouca memória termina em processo morto no meio do build.
+  if [[ $BUILD -eq 1 ]]; then
+    mem_kb="$(awk '/^MemTotal:/ {print $2}' "$HOST_ROOT/proc/meminfo" 2>/dev/null || true)"
+    if [[ -n "$mem_kb" && "$mem_kb" -lt $((15 * 1024 * 1024 / 2)) ]]; then   # 7,5 GiB
+      mem_gb="$(awk -v kb="$mem_kb" 'BEGIN {printf "%.1f", kb / 1024 / 1024}')"
+      say "AVISO: o WSL está limitado a $mem_gb GB de memória; o build precisa de uns 8 GB."
+      say "       Aumente em %UserProfile%\\.wslconfig ([wsl2] memory=8GB) e rode \"wsl --shutdown\" no Windows."
+    fi
+  fi
+fi
+
+# ---------------------------------------------------------------------------
 # Imagem e ciclo de vida: o primeiro ./run.sh é dono do container; os outros só abrem shells nele.
 # ---------------------------------------------------------------------------
 if [[ $BUILD -eq 1 ]] || ! docker image inspect "$IMAGE" >/dev/null 2>&1; then
@@ -64,6 +99,24 @@ fi
 nvidia_gpu_works() { command -v nvidia-smi >/dev/null && nvidia-smi >/dev/null 2>&1; }
 docker_has_nvidia_runtime() { local info; info="$(docker info 2>/dev/null)"; grep -qi nvidia <<<"$info"; }
 
+# Docker Desktop (integração com o WSL) em vez do Docker Engine instalado na distro.
+docker_is_desktop() {
+  local info; info="$(docker info 2>/dev/null)"; grep -q 'Operating System: Docker Desktop' <<<"$info"
+}
+
+# A opção "Enable host networking" do Docker Desktop, lida das configurações dele no Windows
+# (settings-store.json; settings.json nas versões antigas). Sem ela, "network_mode: host" é a
+# rede da VM do Docker Desktop, e nada do container aparece no localhost do WSL/Windows.
+desktop_host_networking_on() {
+  local f
+  for f in "$HOST_ROOT"/mnt/[a-z]/Users/*/AppData/Roaming/Docker/settings*.json; do
+    [[ -e "$f" ]] \
+      && grep -qiE '"hostNetworkingEnabled"[[:space:]]*:[[:space:]]*true' "$f" 2>/dev/null \
+      && return 0
+  done
+  return 1
+}
+
 # Grupo dono de /dev/dri/renderD* no host (normalmente "render"). Sem como saber, usa o grupo
 # "video" do próprio container (o usuário já está nele), só para o group_add não ficar vazio.
 render_gid() {
@@ -76,28 +129,55 @@ render_gid() {
   echo video
 }
 
-FILES=(compose/base.yaml compose/linux-x11.yaml)
+FILES=(compose/base.yaml)
 VARS=("DISPLAY=${DISPLAY:-:0}")   # VAR=valor que os arquivos do compose interpolam
 HAS_GPU=0
-if [[ $FORCE_CPU -eq 1 ]]; then
-  say "--cpu: renderização por software (Mesa llvmpipe)."
-else
-  if [[ -d "$HOST_ROOT/dev/dri" ]]; then
-    FILES+=(compose/linux-dri.yaml)
-    VARS+=("RENDER_GID=$(render_gid)")
+if is_wsl; then
+  # No WSL toda renderização em GPU passa por Mesa d3d12 -> /dev/dxg, inclusive com NVIDIA:
+  # nvidia-smi e o runtime "nvidia" do Docker não entram na decisão.
+  FILES+=(compose/wsl.yaml)
+  VARS+=("WAYLAND_DISPLAY=${WAYLAND_DISPLAY:-wayland-0}")
+  if [[ $FORCE_CPU -eq 1 ]]; then
+    say "--cpu: renderização por software (Mesa llvmpipe)."
+  elif [[ -e "$HOST_ROOT/dev/dxg" ]]; then
+    FILES+=(compose/wsl-d3d12.yaml)
+    VARS+=("MESA_D3D12_DEFAULT_ADAPTER_NAME=${MESA_D3D12_DEFAULT_ADAPTER_NAME:-NVIDIA}")
     HAS_GPU=1
+  else
+    say "Sem /dev/dxg: renderização por software (Mesa llvmpipe)."
   fi
-  if nvidia_gpu_works; then
-    if docker_has_nvidia_runtime; then
-      say "GPU NVIDIA detectada: renderizando na NVIDIA."
-      FILES+=(compose/linux-nvidia.yaml)
-      HAS_GPU=1
+  if docker_is_desktop; then
+    if desktop_host_networking_on; then
+      say "Docker Desktop com rede do host habilitada."
     else
-      say "AVISO: há GPU NVIDIA, mas o Docker não tem o NVIDIA Container Toolkit; ela não será usada."
-      say "       Instale o toolkit para usar a GPU (ver README.md)."
+      say "AVISO: Docker Desktop sem a rede do host habilitada (ou não deu para confirmar):"
+      say "       a uav-api (localhost:8000), o SITL e o Gazebo podem ficar inacessíveis de fora do container."
+      say "       Habilite em Settings > Resources > Network > \"Enable host networking\""
+      say "       (Docker Desktop 4.34+), Apply & restart, e rode ./run.sh de novo."
     fi
   fi
-  [[ $HAS_GPU -eq 1 ]] || say "Sem GPU utilizável: renderização por software (Mesa llvmpipe)."
+else
+  FILES+=(compose/linux-x11.yaml)
+  if [[ $FORCE_CPU -eq 1 ]]; then
+    say "--cpu: renderização por software (Mesa llvmpipe)."
+  else
+    if [[ -d "$HOST_ROOT/dev/dri" ]]; then
+      FILES+=(compose/linux-dri.yaml)
+      VARS+=("RENDER_GID=$(render_gid)")
+      HAS_GPU=1
+    fi
+    if nvidia_gpu_works; then
+      if docker_has_nvidia_runtime; then
+        say "GPU NVIDIA detectada: renderizando na NVIDIA."
+        FILES+=(compose/linux-nvidia.yaml)
+        HAS_GPU=1
+      else
+        say "AVISO: há GPU NVIDIA, mas o Docker não tem o NVIDIA Container Toolkit; ela não será usada."
+        say "       Instale o toolkit para usar a GPU (ver README.md)."
+      fi
+    fi
+    [[ $HAS_GPU -eq 1 ]] || say "Sem GPU utilizável: renderização por software (Mesa llvmpipe)."
+  fi
 fi
 [[ $HAS_GPU -eq 1 ]] || FILES+=(compose/cpu.yaml)
 

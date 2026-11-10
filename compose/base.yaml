@@ -1,6 +1,6 @@
 # Configuração comum do container. O run.sh soma a este arquivo os overrides do host e da GPU
-# (linux-x11, linux-dri, linux-nvidia, cpu); os caminhos relativos são da raiz do clone
-# (run.sh passa --project-directory).
+# (linux-x11, linux-dri, linux-nvidia, wsl, wsl-d3d12, cpu); os caminhos relativos são da raiz do
+# clone (run.sh passa --project-directory).
 name: aerorio
 
 services:
