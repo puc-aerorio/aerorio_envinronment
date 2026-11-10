@@ -314,3 +314,28 @@ docker build --build-arg ARDUPILOT_REF=Copter-4.6 --build-arg ARDUPILOT_GAZEBO_R
 
 `run.sh --build` sempre usa `master`/`main`; para fixar, rode o `docker build` acima (com
 `--build-arg HOST_UID=$(id -u) --build-arg HOST_GID=$(id -g)`) e depois `./run.sh`.
+
+### Testes
+
+A suíte é pytest, rodada no **host** (não no container) com o [uv](https://docs.astral.sh/uv/).
+Os testes são divididos em camadas, escolhidas com `-m`:
+
+| Camada       | O que verifica                                                        |
+| ------------ | --------------------------------------------------------------------- |
+| `static`     | shellcheck nos scripts shell, hadolint no `Dockerfile`, ruff no Python de `tools/` e `tests/` |
+| `smoke`      | a imagem como caixa-preta (`docker run` / `docker exec`)              |
+| `simulation` | uma simulação headless voando pela uav-api                            |
+| `launcher`   | as decisões do `run.sh` em hosts Linux/WSL simulados                  |
+
+```bash
+uv run pytest -m static      # camada estática (é o que o CI roda em todo pull request)
+```
+
+O `uv` instala sozinho as versões fixadas em `pyproject.toml`/`uv.lock` (pytest, ruff,
+shellcheck, hadolint) num `.venv/` do clone. Uma camada com nome errado (`-m statc`) é erro, não
+uma execução vazia.
+
+Um aviso dos linters se corrige no código ou, quando é intencional, se suprime na própria linha com
+o motivo: `# shellcheck disable=SCxxxx  # motivo`, `# hadolint ignore=DLxxxx` (com um comentário
+acima explicando) ou `# noqa: XXX  # motivo`. Regras do hadolint ignoradas para o `Dockerfile`
+inteiro ficam em `.hadolint.yaml`, cada uma com o motivo.

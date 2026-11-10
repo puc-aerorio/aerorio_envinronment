@@ -1,0 +1,13 @@
+# hadolint config for the Dockerfile. Rules ignored here conflict with how the Image is built on
+# purpose; line-specific exceptions live next to the line as `# hadolint ignore=` with a reason.
+ignored:
+  # Ubuntu, OSRF and ROS archives drop old package versions, so exact apt pins would break builds.
+  # Reproducibility is to come from pinning ArduPilot and ardupilot_gazebo instead (ADR-0002).
+  - DL3008
+  # After `USER ardupilot` (ArduPilot's install-prereqs refuses root) the few root steps use the
+  # user's passwordless sudo.
+  - DL3004
+  # RUN steps are split on purpose so heavy layers (ArduPilot, Gazebo) stay cached.
+  - DL3059
+  # The user is named because ArduPilot's scripts and the run.sh mounts expect `ardupilot`.
+  - DL3066

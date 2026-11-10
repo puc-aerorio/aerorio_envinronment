@@ -1,0 +1,30 @@
+# Dev tooling only: the test suite and static checks. Nothing here is installed in the Image.
+[project]
+name = "aerorio-environment"
+version = "0.0.0"
+requires-python = ">=3.12"
+
+[dependency-groups]
+dev = [
+    "pytest==9.2.0",
+    "ruff==0.17.4",
+    "shellcheck-py==0.11.0.1",
+    "hadolint-py==2.15.1.3",
+]
+
+[tool.uv]
+package = false
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = ["--strict-markers", "--strict-config"]
+markers = [
+    "static: shellcheck, hadolint and ruff over the repo; no Docker needed",
+    "smoke: the Image as a black box (docker run / docker exec)",
+    "simulation: a headless Simulation flown through uav-api",
+    "launcher: run.sh decisions against faked Hosts",
+]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100

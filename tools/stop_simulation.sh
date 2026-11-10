@@ -37,20 +37,20 @@ fi
 alive() {
   local pids
   pids=$(pgrep -f "$1" 2>/dev/null | grep -vxE "1|$$|$PPID") || return 0
-  ps -o pid= -o stat= -p $(echo $pids | tr ' ' ',') 2>/dev/null | awk '$2 !~ /Z/ {print $1}'
+  ps -o pid= -o stat= -p "$(paste -sd, - <<<"$pids")" 2>/dev/null | awk '$2 !~ /Z/ {print $1}'
 }
 for p in "${PATTERNS[@]}"; do
-  pids=$(alive "$p")
-  [[ -n "$pids" ]] || continue
-  echo "[stop] encerrando ($p): $(echo $pids | tr '\n' ' ')"
-  kill $pids 2>/dev/null || true
+  mapfile -t pids < <(alive "$p")
+  [[ ${#pids[@]} -gt 0 ]] || continue
+  echo "[stop] encerrando ($p): ${pids[*]}"
+  kill "${pids[@]}" 2>/dev/null || true
 done
 sleep 2
 for p in "${PATTERNS[@]}"; do
-  pids=$(alive "$p")
-  [[ -n "$pids" ]] || continue
-  echo "[stop] forçando ($p): $(echo $pids | tr '\n' ' ')"
-  kill -9 $pids 2>/dev/null || true
+  mapfile -t pids < <(alive "$p")
+  [[ ${#pids[@]} -gt 0 ]] || continue
+  echo "[stop] forçando ($p): ${pids[*]}"
+  kill -9 "${pids[@]}" 2>/dev/null || true
 done
 
 # 3. Sessão tmux.
@@ -61,13 +61,13 @@ fi
 # 4. Opcional: artefatos do SITL no $HOME.
 if [[ $PURGE -eq 1 ]]; then
   for f in eeprom.bin mav.parm mav.tlog mav.tlog.raw logs terrain; do
-    [[ -e "$HOME/$f" ]] && rm -rf "$HOME/$f" && echo "[stop] removido ~/$f"
+    [[ -e "$HOME/$f" ]] && rm -rf "${HOME:?}/$f" && echo "[stop] removido ~/$f"
   done
 fi
 
 # 5. Relatório.
 left=""
-for p in "${PATTERNS[@]}"; do pids=$(alive "$p"); [[ -n "$pids" ]] && left+="$p "; done
+for p in "${PATTERNS[@]}"; do [[ -n "$(alive "$p")" ]] && left+="$p "; done
 if [[ -n "$left" ]]; then
   echo "[stop] ATENÇÃO: ainda rodando: $left" >&2; exit 1
 fi

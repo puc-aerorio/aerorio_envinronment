@@ -41,6 +41,8 @@ RUN curl -fsSL https://packages.osrfoundation.org/gazebo.gpg -o /usr/share/keyri
        > /etc/apt/sources.list.d/gazebo-stable.list
 
 # 3. Gazebo Harmonic e dependências do plugin ardupilot_gazebo
+#    Com recomendados de propósito: gz-harmonic depende deles para renderizar.
+# hadolint ignore=DL3015
 RUN apt-get update && apt-get install -y \
     gz-harmonic \
     libgz-sim8-dev \
@@ -55,6 +57,8 @@ RUN apt-get update && apt-get install -y \
 
 # 3b. ROS 2 Jazzy + ros_gz (ponte Gazebo -> ROS 2 para ler as imagens da câmera).
 #     Jazzy é o par oficial do Gazebo Harmonic no Ubuntu 24.04.
+#     Com recomendados de propósito, como no passo 3.
+# hadolint ignore=DL3015
 RUN curl -fsSL https://raw.githubusercontent.com/ros/rosdistro/master/ros.key -o /usr/share/keyrings/ros-archive-keyring.gpg \
     && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/ros-archive-keyring.gpg] http://packages.ros.org/ros2/ubuntu $(lsb_release -cs) main" \
        > /etc/apt/sources.list.d/ros2.list \
@@ -74,10 +78,12 @@ ENV ROS_DISTRO=jazzy
 #    O ubuntu:24.04 já traz um usuário "ubuntu" com uid 1000; ele é removido para liberar o uid.
 ARG HOST_UID=1000
 ARG HOST_GID=1000
+# DL4006: o pipe só roda depois de getent confirmar que a entrada existe, e o cut não falha com ela.
+# hadolint ignore=DL4006
 RUN if getent passwd "${HOST_UID}" >/dev/null; then userdel -r "$(getent passwd "${HOST_UID}" | cut -d: -f1)"; fi \
     && if getent group "${HOST_GID}" >/dev/null; then groupdel "$(getent group "${HOST_GID}" | cut -d: -f1)" || true; fi \
     && groupadd -o -g "${HOST_GID}" ardupilot \
-    && useradd -m -s /bin/bash -u "${HOST_UID}" -g "${HOST_GID}" ardupilot \
+    && useradd -l -m -s /bin/bash -u "${HOST_UID}" -g "${HOST_GID}" ardupilot \
     && echo "ardupilot ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers \
     && usermod -aG video,dialout ardupilot
 USER ardupilot
@@ -92,6 +98,8 @@ ENV SKIP_AP_EXT_ENV=1 \
     SKIP_AP_COV_ENV=1 \
     SKIP_AP_GIT_CHECK=1 \
     DO_AP_STM_ENV=0
+# DL3003: o cd vale só dentro deste RUN, que precisa rodar o install-prereqs a partir do clone.
+# hadolint ignore=DL3003
 RUN git clone --branch "${ARDUPILOT_REF}" --recurse-submodules \
         https://github.com/ArduPilot/ardupilot.git /home/ardupilot/ardupilot \
     && cd /home/ardupilot/ardupilot \
@@ -116,6 +124,8 @@ RUN bash -c 'set -e; \
 
 # 7. Plugin ardupilot_gazebo
 ENV GZ_VERSION=harmonic
+# DL3003: o cd vale só dentro deste RUN (clone + build no mesmo passo).
+# hadolint ignore=DL3003
 RUN git clone --branch "${ARDUPILOT_GAZEBO_REF}" \
         https://github.com/ArduPilot/ardupilot_gazebo.git /home/ardupilot/ardupilot_gazebo \
     && cd /home/ardupilot/ardupilot_gazebo \
@@ -149,6 +159,8 @@ RUN sudo apt-get update && sudo apt-get install -y --no-install-recommends xclip
 # 7c. Visual Studio Code (repositório da Microsoft). A janela abre no X11 do host como o Gazebo.
 #     Configurações e extensões ficam em ~/.config/Code e ~/.vscode, que o run.sh monta como
 #     volumes Docker nomeados para sobreviverem ao --rm do container.
+# DL4006: se o curl falhar, o gpg --dearmor recebe entrada vazia e o apt-get update falha depois.
+# hadolint ignore=DL4006
 RUN curl -fsSL https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor \
         | sudo tee /usr/share/keyrings/packages.microsoft.gpg >/dev/null \
     && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/packages.microsoft.gpg] https://packages.microsoft.com/repos/code stable main" \
@@ -172,6 +184,8 @@ ENV DRONE_PHOTOS_DIR=/home/ardupilot/workspace/photos \
 # vendor (transport/msgs), o que esconde o "gz sim" do gz-harmonic. Usado pelo .bashrc,
 # start_simulation.sh e camera_saver.py. O venv volta para a frente do PATH para que "python3"
 # seja o do ArduPilot (pymavlink, uav_api); o rclpy continua importável nele via PYTHONPATH do ROS.
+# SC2016: as aspas simples são de propósito; as variáveis expandem quando o arquivo é carregado.
+# hadolint ignore=SC2016
 RUN { \
       echo 'source /opt/ros/jazzy/setup.bash'; \
       echo 'export GZ_CONFIG_PATH="/usr/share/gz${GZ_CONFIG_PATH:+:$GZ_CONFIG_PATH}"'; \

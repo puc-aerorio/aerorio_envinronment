@@ -101,15 +101,15 @@ stop_pane() {
 alive() {
   local pids
   pids=$(pgrep -f "$1" 2>/dev/null | grep -vxE "1|$$|$PPID") || return 0
-  ps -o pid= -o stat= -p $(echo $pids | tr ' ' ',') 2>/dev/null | awk '$2 !~ /Z/ {print $1}'
+  ps -o pid= -o stat= -p "$(paste -sd, - <<<"$pids")" 2>/dev/null | awk '$2 !~ /Z/ {print $1}'
 }
 kill_pattern() {   # kill_pattern PADRAO: SIGTERM, depois SIGKILL
-  local pids
-  pids=$(alive "$1"); [[ -n "$pids" ]] || return 0
-  log "encerrando ($1): $(echo $pids | tr '\n' ' ')"
-  kill $pids 2>/dev/null; sleep 1
-  pids=$(alive "$1"); [[ -n "$pids" ]] || return 0
-  kill -9 $pids 2>/dev/null; sleep 0.5
+  local pids=()
+  mapfile -t pids < <(alive "$1"); [[ ${#pids[@]} -gt 0 ]] || return 0
+  log "encerrando ($1): ${pids[*]}"
+  kill "${pids[@]}" 2>/dev/null; sleep 1
+  mapfile -t pids < <(alive "$1"); [[ ${#pids[@]} -gt 0 ]] || return 0
+  kill -9 "${pids[@]}" 2>/dev/null; sleep 0.5
 }
 
 # ---------------------------------------------------------------------------
@@ -139,7 +139,7 @@ fi
 # 4. Opcional: artefatos do SITL no $HOME (parâmetros gravados, logs).
 if [[ $PURGE -eq 1 ]]; then
   for f in eeprom.bin mav.parm mav.tlog mav.tlog.raw logs terrain; do
-    [[ -e "$HOME/$f" ]] && rm -rf "$HOME/$f" && log "removido ~/$f"
+    [[ -e "$HOME/$f" ]] && rm -rf "${HOME:?}/$f" && log "removido ~/$f"
   done
 fi
 

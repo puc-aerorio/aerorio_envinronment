@@ -25,6 +25,7 @@ WORLD_DIRS=("$HOME/tools/gazebo/worlds" "$HOME/ardupilot_gazebo/worlds")
 # ---------------------------------------------------------------------------
 bridge() {
   set +u                                   # os setup.bash do ROS usam variáveis não definidas
+  # shellcheck source=/dev/null  # ros_env.sh é gerado dentro da imagem, não existe no repositório
   source "$HOME/ros_env.sh"                # ROS 2 + correção do PATH/GZ_CONFIG_PATH do gz
   set -u
   echo "[bridge] aguardando tópicos de câmera do Gazebo..."
@@ -46,6 +47,7 @@ bridge() {
 # Painel 4: salva fotos da câmera. O script espera sozinho o tópico da ponte aparecer.
 saver() {
   set +u
+  # shellcheck source=/dev/null  # ros_env.sh é gerado dentro da imagem, não existe no repositório
   source "$HOME/ros_env.sh"
   set -u
   exec /usr/bin/python3 "$(dirname "$SELF")/camera_saver.py"
@@ -130,7 +132,7 @@ if ! WORLD_PATH="$(resolve_world "$WORLD_ARG")"; then
   for d in "${WORLD_DIRS[@]}"; do
     [[ -d "$d" ]] || continue
     echo "  $d:" >&2
-    ls "$d"/*.sdf 2>/dev/null | xargs -rn1 basename | sed 's/^/    /' >&2
+    for w in "$d"/*.sdf; do [[ -e "$w" ]] && echo "    ${w##*/}" >&2; done
   done
   exit 1
 fi
