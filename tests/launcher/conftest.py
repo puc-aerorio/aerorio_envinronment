@@ -66,6 +66,15 @@ class FakeHost:
     docker_nvidia_runtime: bool = False
     image_present: bool = True
     container_running: bool = False
+    # WSL Host: kernel marker, the GPU paravirtualisation device, and the Docker flavour.
+    wsl: bool = False
+    dxg: bool = False
+    docker_desktop: bool = False
+    # Docker Desktop's "Enable host networking" setting; None means no settings file to read.
+    host_networking: bool | None = False
+    mem_total_kb: int | None = None  # MemTotal in /proc/meminfo
+    clone_under: str | None = None  # run the launcher from a clone at this path under the root
+    env: dict[str, str] = field(default_factory=dict)  # extra Host environment
 
     @property
     def render_device(self) -> Path:
@@ -80,13 +89,30 @@ class FakeHost:
         if self.dri:
             self.render_device.parent.mkdir(parents=True, exist_ok=True)
             self.render_device.touch()
+        if self.wsl:
+            osrelease = self.root / "proc/sys/kernel/osrelease"
+            osrelease.parent.mkdir(parents=True, exist_ok=True)
+            osrelease.write_text("5.15.167.4-microsoft-standard-WSL2\n")
+        if self.dxg:
+            (self.root / "dev").mkdir(exist_ok=True)
+            (self.root / "dev/dxg").touch()
+        if self.mem_total_kb is not None:
+            (self.root / "proc").mkdir(exist_ok=True)
+            (self.root / "proc/meminfo").write_text(
+                f"MemTotal:       {self.mem_total_kb} kB\nMemFree:         1000000 kB\n"
+            )
+        if self.docker_desktop and self.host_networking is not None:
+            settings = self.root / "mnt/c/Users/aluno/AppData/Roaming/Docker/settings-store.json"
+            settings.parent.mkdir(parents=True, exist_ok=True)
+            settings.write_text(json.dumps({"HostNetworkingEnabled": self.host_networking}))
+        operating_system = "Docker Desktop" if self.docker_desktop else "Ubuntu 24.04.1 LTS"
         self._stub("nvidia-smi", "exit 0\n" if self.nvidia_smi_works else "exit 9\n")
         runtimes = "io.containerd.runc.v2 nvidia runc" if self.docker_nvidia_runtime else "runc"
         running = "true" if self.container_running else "false"
         self._stub(
             "docker",
             f"""case "$1 ${{2:-}}" in
-  "info "*) echo " Runtimes: {runtimes}" ;;
+  "info "*) echo " Operating System: {operating_system}"; echo " Runtimes: {runtimes}" ;;
   "image inspect") exit {0 if self.image_present else 1} ;;
   "container inspect") echo {running} ;;
   *) echo "stub docker: unexpected call: $*" >&2; exit 99 ;;
@@ -94,17 +120,27 @@ esac
 """,
         )
 
+    def _launcher(self) -> Path:
+        """The repo's run.sh, or a copy of it in a clone placed somewhere under the fake root."""
+        if self.clone_under is None:
+            return REPO_ROOT / "run.sh"
+        clone = self.root / self.clone_under.lstrip("/")
+        clone.mkdir(parents=True, exist_ok=True)
+        return Path(shutil.copy(REPO_ROOT / "run.sh", clone / "run.sh"))
+
     def dry_run(self, *args: str) -> DryRun:
         self._materialize()
+        launcher = self._launcher()
         env = {
             "PATH": f"{self.bin}:/usr/bin:/bin",
             "HOME": str(self.root / "home"),
             "AERORIO_HOST_ROOT": str(self.root),
             "DISPLAY": ":1",
+            **self.env,
         }
         result = subprocess.run(
-            [str(REPO_ROOT / "run.sh"), "--dry-run", *args],
-            cwd=REPO_ROOT,
+            [str(launcher), "--dry-run", *args],
+            cwd=launcher.parent,
             env=env,
             capture_output=True,
             text=True,

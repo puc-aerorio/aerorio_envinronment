@@ -1,0 +1,15 @@
+# Host WSL com /dev/dxg: o Mesa renderiza na GPU do Windows pelo driver d3d12 (qualquer
+# fabricante). No WSL não existe OpenGL nativo do fabricante, por isso nada de "--gpus all" aqui,
+# mesmo com NVIDIA. Fica separado do wsl.yaml porque o compose não tem device opcional.
+services:
+  sim:
+    devices:
+      - /dev/dxg:/dev/dxg
+    volumes:
+      - /usr/lib/wsl:/usr/lib/wsl:ro   # bibliotecas do D3D12 que o WSL expõe à distro
+    environment:
+      LD_LIBRARY_PATH: /usr/lib/wsl/lib
+      GALLIUM_DRIVER: d3d12
+      # Em notebooks híbridos escolhe a GPU cujo nome contém este texto; sem nenhuma que combine,
+      # o Mesa usa o adaptador padrão. Para trocar: MESA_D3D12_DEFAULT_ADAPTER_NAME=Intel ./run.sh
+      MESA_D3D12_DEFAULT_ADAPTER_NAME: ${MESA_D3D12_DEFAULT_ADAPTER_NAME:-NVIDIA}
